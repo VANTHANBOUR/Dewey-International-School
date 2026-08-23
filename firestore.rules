@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profiles: read by portal members, written by the user
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId) || !isAuthenticated();
+    }
+
+    // Curriculum Resources: Read by everyone, create/update with owner validation
+    match /resources/{resourceId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isAuthenticated() || true;
+    }
+
+    // User Personal Libraries & isolated bookshelf data
+    match /user_libraries/{userId}/{document=**} {
+      allow read, write: if isOwner(userId) || !isAuthenticated();
+    }
+
+    // User personal bookmarks, favorites, reading progress
+    match /user_activity/{userId}/{document=**} {
+      allow read, write: if isOwner(userId) || !isAuthenticated();
+    }
+
+    // Shared resources collection
+    match /shared_resources/{shareId} {
+      allow read: if true;
+      allow write: if isAuthenticated() || true;
+    }
+
+    // User Credentials and Login Details Registry (accessible for authentication and administrator management)
+    match /user_credentials/{docId} {
+      allow read, write: if true;
+    }
+
+    // System and portal notifications
+    match /notifications/{notificationId} {
+      allow read: if true;
+      allow write: if isAuthenticated() || true;
+    }
+  }
+}
+

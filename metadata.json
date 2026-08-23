@@ -1,0 +1,8 @@
+{
+  "name": "Remix Dewey International School Curriculum Portal",
+  "description": "Interactive curriculum resources, flipbooks, and digital library portal for Dewey International School educators and students.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

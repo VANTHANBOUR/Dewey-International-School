@@ -1,0 +1,648 @@
+import { Resource, WorksheetItem, LessonPlanItem } from '../types';
+
+/**
+ * Returns a complete Worksheet object for a resource, generating rich pedagogical defaults if not present
+ */
+export function getResourceWorksheet(resource: Resource): WorksheetItem {
+  if (resource.worksheet) {
+    return resource.worksheet;
+  }
+
+  const samplePage = resource.samplePages[0];
+  const title = `${resource.title} - Student Practice Worksheet`;
+  const subject = resource.subject;
+  const grade = resource.grade;
+
+  return {
+    id: `ws-${resource.id}`,
+    title: title,
+    subtitle: resource.subtitle || `Unit Review & Mastery Check (Grade ${grade})`,
+    grade: grade,
+    subject: subject,
+    estimatedMinutes: 30,
+    totalPoints: 25,
+    instructions: `Read each question carefully. For multiple-choice questions, circle the correct letter. For short answers, write clearly in complete sentences and show your work where applicable.`,
+    questions: [
+      {
+        num: 1,
+        prompt: `Define the primary core concept introduced in "${samplePage?.title || resource.title}". Explain why this concept is essential to ${subject}.`,
+        type: 'short_answer',
+        points: 5,
+        hint: 'Refer to the introductory section and key terms.'
+      },
+      {
+        num: 2,
+        prompt: samplePage?.exercise?.question || `Which statement best describes the fundamental principle of ${resource.subtitle || resource.title}?`,
+        type: 'multiple_choice',
+        options: samplePage?.exercise?.options || [
+          'It operates under standard physical and analytical laws.',
+          'It varies randomly without predictable models.',
+          'It is only applicable in theoretical laboratory environments.',
+          'None of the above statements are accurate.'
+        ],
+        correctAnswer: samplePage?.exercise ? samplePage.exercise.options[samplePage.exercise.correctIndex] : 'It operates under standard physical and analytical laws.',
+        points: 4
+      },
+      {
+        num: 3,
+        prompt: `List and briefly describe two real-world applications or historical examples related to ${resource.title} in Grade ${grade} studies.`,
+        type: 'short_answer',
+        points: 6
+      },
+      {
+        num: 4,
+        prompt: `Vocabulary Fill-in: Complete the sentence with the correct curriculum term: ________________ is maintained through continuous regulatory processes and systematic feedback loops.`,
+        type: 'fill_in_blank',
+        correctAnswer: samplePage?.keyTerms?.[0]?.term || 'Homeostasis / Equilibrium',
+        points: 4
+      },
+      {
+        num: 5,
+        prompt: `Critical Thinking & Inquiry: If one key variable in this ${subject} system were altered or removed, predict two direct consequences and justify your reasoning with scientific or analytical evidence.`,
+        type: 'short_answer',
+        points: 6
+      }
+    ],
+    answerKey: [
+      {
+        questionNum: 1,
+        answer: `Comprehensive definition based on unit text: ${samplePage?.content?.[0] || 'Foundational principles governing the topic.'} (Award 5 pts for complete definition and clear application to ${subject}).`,
+        explanation: 'Full credit requires accurate definition and relevance explanation.'
+      },
+      {
+        questionNum: 2,
+        answer: samplePage?.exercise ? `Option ${String.fromCharCode(65 + samplePage.exercise.correctIndex)}: ${samplePage.exercise.options[samplePage.exercise.correctIndex]}` : 'Option A',
+        explanation: samplePage?.exercise?.explanation || 'Directly aligned with curriculum reading standards.'
+      },
+      {
+        questionNum: 3,
+        answer: 'Accept any two valid real-world examples discussed in the unit (3 pts each).',
+        explanation: 'Examples must demonstrate understanding of practical utility.'
+      },
+      {
+        questionNum: 4,
+        answer: samplePage?.keyTerms?.[0]?.term || 'Homeostasis / Equilibrium',
+        explanation: 'Direct vocabulary identification from reading material.'
+      },
+      {
+        questionNum: 5,
+        answer: 'Student must formulate a logical hypothesis predicting two specific consequences with sound supporting rationale (3 pts per consequence + justification).',
+        explanation: 'Evaluates higher-order synthesis and inquiry.'
+      }
+    ]
+  };
+}
+
+/**
+ * Returns a complete structured Lesson Plan object for a resource, generating rich pedagogical defaults if not present
+ */
+export function getResourceLessonPlan(resource: Resource): LessonPlanItem {
+  if (resource.lessonPlan) {
+    return resource.lessonPlan;
+  }
+
+  const grade = resource.grade;
+  const subject = resource.subject;
+  const samplePage = resource.samplePages[0];
+
+  return {
+    id: `lp-${resource.id}`,
+    title: `Lesson Plan: ${resource.title}`,
+    unit: resource.subtitle || `Unit 1: Foundations of ${subject} (Grade ${grade})`,
+    grade: grade,
+    subject: subject,
+    duration: '45 - 60 Minutes',
+    curriculumStandards: [
+      `DIS-${subject.toUpperCase().slice(0, 3)}.G${grade}.01: Demonstrate comprehension of core ${subject} principles and structured analytical methods.`,
+      `DIS-${subject.toUpperCase().slice(0, 3)}.G${grade}.04: Apply inquiry-based reasoning to analyze models and solve multi-step problems.`,
+      `CCSS/NGSS Alignment: Grade ${grade} Academic Competency Framework 2025-2026.`
+    ],
+    learningObjectives: [
+      `Students will be able to define and identify key concepts associated with ${resource.title}.`,
+      `Students will collaborate to analyze diagrams, models, and real-world case scenarios with 85% accuracy.`,
+      `Students will synthesize their understanding through guided practice and independent worksheet assessment.`
+    ],
+    essentialQuestions: [
+      `How does understanding ${resource.title} help us explain and solve real-world challenges in ${subject}?`,
+      `What evidence supports the relationships and mechanisms introduced in this curriculum module?`
+    ],
+    requiredMaterials: [
+      `Dewey International School Digital Flipbook / PDF Reader`,
+      `Student Practice Worksheet (${resource.title})`,
+      `Interactive Whiteboard / Projection Screen`,
+      `Student Science/Math Notebooks & Writing Utensils`
+    ],
+    vocabularyTerms: samplePage?.keyTerms || [
+      { term: 'Core Principle', definition: 'The foundational law or concept governing the topic.' },
+      { term: 'Analytical Model', definition: 'A representation used to explain and predict behavior in systems.' },
+      { term: 'Synthesis', definition: 'Combining separate elements to form a coherent whole.' }
+    ],
+    timeline: [
+      {
+        phase: '1. Warm-Up & Hook (Engage)',
+        durationMin: 7,
+        teacherRole: `Project the opening prompt from ${resource.title}. Pose the essential question: "${samplePage?.title || 'What makes this topic crucial?'}".`,
+        studentRole: `Quick-write in notebooks for 3 minutes; turn and share with a partner (Think-Pair-Share).`
+      },
+      {
+        phase: '2. Direct Instruction & Modeling (Explain)',
+        durationMin: 15,
+        teacherRole: `Walk through textbook pages 1–3 using the digital flipbook reader. Highlight key vocabulary terms and diagram components.`,
+        studentRole: `Follow along in their individual digital portal, take structured Cornell notes, and highlight key terms.`
+      },
+      {
+        phase: '3. Collaborative Guided Practice (Explore)',
+        durationMin: 12,
+        teacherRole: `Facilitate small group breakout stations. Guide student pairs through checking concept questions and discussing scenarios.`,
+        studentRole: `Work in assigned partner pairs to solve Section 1 of the student worksheet and check each other's reasoning.`
+      },
+      {
+        phase: '4. Independent Mastery & Assessment (Evaluate)',
+        durationMin: 15,
+        teacherRole: `Circulate room for formative check-ins. Provide targeted scaffolding for students requiring extra reinforcement.`,
+        studentRole: `Complete questions 1 through 5 on the individual Student Practice Worksheet independently.`
+      },
+      {
+        phase: '5. Wrap-Up & Exit Ticket',
+        durationMin: 6,
+        teacherRole: `Collect student worksheets. Prompt whole-class reflection: "Name one key takeaway and one question you still have."`,
+        studentRole: `Submit completed exit ticket summary and pack up materials.`
+      }
+    ],
+    formativeAssessment: `Observation during partner guided practice and rubric evaluation of the 5-question student practice worksheet. Mastery criterion: 80% or higher.`,
+    differentiation: {
+      support: `Provide sentence starters for short-answer questions, guided vocabulary glossaries with visual aids, and pair with a peer mentor.`,
+      extension: `Prompt students to design an original inquiry experiment, write an extended analytical response, or model real-world application data.`
+    },
+    homeworkAssignment: `Review pages 1–4 in the Dewey Flipbook reader and complete the 3 reflection questions in the student workbook.`
+  };
+}
+
+/**
+ * Downloads a structured text/html document to the user's local downloads folder
+ */
+export function triggerFileDownload(filename: string, content: string, mimeType: string = 'text/html') {
+  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Generates and triggers download of a printable, professionally formatted student worksheet
+ */
+export function downloadWorksheetDocument(resource: Resource, includeAnswerKey: boolean = false) {
+  const ws = getResourceWorksheet(resource);
+  const safeTitle = resource.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `Dewey_Worksheet_${safeTitle}_Grade${resource.grade}.html`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${ws.title} - Dewey International School</title>
+  <style>
+    @page { size: A4; margin: 18mm 15mm; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 24px;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .school-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .sub-title {
+      font-size: 13px;
+      color: #2563eb;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+    .meta-item { display: flex; align-items: center; }
+    .meta-label { font-weight: 700; color: #475569; margin-right: 6px; }
+    .meta-line { flex: 1; border-bottom: 1px dotted #94a3b8; height: 16px; }
+    .instructions {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 22px;
+      font-size: 12.5px;
+      color: #1e3a8a;
+    }
+    .instructions strong { color: #1e40af; }
+    .question-block {
+      margin-bottom: 22px;
+      page-break-inside: avoid;
+    }
+    .q-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 14px;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+    .points {
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+    .options-list {
+      list-style: none;
+      padding-left: 10px;
+      margin: 8px 0;
+    }
+    .options-list li {
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .option-bubble {
+      width: 18px;
+      height: 18px;
+      border: 1.5px solid #64748b;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .answer-space {
+      border-bottom: 1px dotted #cbd5e1;
+      height: 28px;
+      margin-top: 8px;
+    }
+    .answer-box {
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      height: 80px;
+      background: #fafafa;
+      margin-top: 8px;
+    }
+    .footer {
+      margin-top: 30px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+    .answer-key-section {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 3px double #0f172a;
+      page-break-before: always;
+    }
+    .badge-ak {
+      background: #10b981;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 12px;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    .print-btn {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+    }
+    @media print {
+      .print-btn { display: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+
+  <div class="header">
+    <div>
+      <div class="school-title">Dewey International School</div>
+      <div class="sub-title">${resource.subject} Curriculum • Grade ${resource.grade}</div>
+      <h1 style="font-size: 16px; margin: 6px 0 0 0; color: #0f172a;">${ws.title}</h1>
+      <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">${ws.subtitle || ''}</p>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 12px; font-weight: 700; color: #0f172a;">TOTAL SCORE: ____ / ${ws.totalPoints}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Est. Time: ${ws.estimatedMinutes} Mins</div>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-item"><span class="meta-label">Student Name:</span><span class="meta-line"></span></div>
+    <div class="meta-item"><span class="meta-label">Date:</span><span class="meta-line"></span></div>
+    <div class="meta-item"><span class="meta-label">Class/Section:</span><span class="meta-line"></span></div>
+  </div>
+
+  <div class="instructions">
+    <strong>Instructions:</strong> ${ws.instructions}
+  </div>
+
+  <div class="questions">
+    ${ws.questions.map((q) => `
+      <div class="question-block">
+        <div class="q-header">
+          <span>Question ${q.num}: ${q.prompt}</span>
+          <span class="points">${q.points} Points</span>
+        </div>
+        ${q.hint ? `<div style="font-size: 11.5px; color: #64748b; font-style: italic; margin-bottom: 6px;">Hint: ${q.hint}</div>` : ''}
+        
+        ${q.options && q.options.length > 0 ? `
+          <ul class="options-list">
+            ${q.options.map((opt, oIdx) => `
+              <li>
+                <span class="option-bubble"></span>
+                <strong>${String.fromCharCode(65 + oIdx)}.</strong> ${opt}
+              </li>
+            `).join('')}
+          </ul>
+        ` : q.type === 'fill_in_blank' ? `
+          <div class="answer-space"></div>
+        ` : `
+          <div class="answer-box"></div>
+          <div class="answer-space"></div>
+        `}
+      </div>
+    `).join('')}
+  </div>
+
+  ${includeAnswerKey ? `
+    <div class="answer-key-section">
+      <div class="badge-ak">TEACHER ANSWER KEY & SCORING RUBRIC</div>
+      <h2 style="font-size: 16px; margin: 0 0 12px 0;">Curriculum Solutions: ${ws.title}</h2>
+      <div style="display: grid; gap: 12px;">
+        ${ws.answerKey.map((ak) => `
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px;">
+            <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+              Question ${ak.questionNum} Solution:
+            </div>
+            <div style="font-size: 13px; color: #059669; font-weight: 600;">${ak.answer}</div>
+            ${ak.explanation ? `<div style="font-size: 11.5px; color: #64748b; margin-top: 3px;"><strong>Pedagogical Notes:</strong> ${ak.explanation}</div>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : ''}
+
+  <div class="footer">
+    <span>Dewey International School • Curriculum Publishing & Assessment Portal</span>
+    <span>Document ID: ${ws.id} • Academic Year 2025-2026</span>
+  </div>
+</body>
+</html>`;
+
+  triggerFileDownload(filename, html, 'text/html');
+}
+
+/**
+ * Generates and triggers download of an educator Lesson Plan document
+ */
+export function downloadLessonPlanDocument(resource: Resource) {
+  const lp = getResourceLessonPlan(resource);
+  const safeTitle = resource.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `Dewey_Lesson_Plan_${safeTitle}_Grade${resource.grade}.html`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${lp.title} - Dewey International School Educator Plan</title>
+  <style>
+    @page { size: A4; margin: 18mm 15mm; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 24px;
+      line-height: 1.5;
+      font-size: 13.5px;
+    }
+    .header {
+      border-bottom: 2px solid #1e40af;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .school-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #1e40af;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .badge {
+      background: #1e40af;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 1.5px solid #e2e8f0;
+      padding-bottom: 4px;
+      margin-top: 18px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .card-title {
+      font-weight: 700;
+      color: #1e40af;
+      font-size: 12px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    ul { margin: 0; padding-left: 18px; }
+    li { margin-bottom: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 12.5px;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #1e293b;
+      color: white;
+      font-weight: 700;
+      font-size: 11.5px;
+      text-transform: uppercase;
+    }
+    tr:nth-child(even) { background: #f8fafc; }
+    .print-btn {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: #1e40af;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(30,64,175,0.3);
+    }
+    @media print {
+      .print-btn { display: none; }
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Print / Save PDF</button>
+
+  <div class="header">
+    <div>
+      <div class="school-title">Dewey International School</div>
+      <div style="font-size: 13px; font-weight: 700; color: #3b82f6; margin-top: 2px;">
+        Curriculum Department • Formal Educator Lesson Plan
+      </div>
+      <h1 style="font-size: 17px; margin: 6px 0 0 0; color: #0f172a;">${lp.title}</h1>
+      <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">${lp.unit}</p>
+    </div>
+    <div style="text-align: right;">
+      <span class="badge">Grade ${lp.grade} • ${lp.subject}</span>
+      <div style="font-size: 11.5px; color: #64748b; margin-top: 6px;">Duration: ${lp.duration}</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">🎯 Learning Objectives</div>
+      <ul>
+        ${lp.learningObjectives.map((o) => `<li>${o}</li>`).join('')}
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-title">💡 Essential Questions</div>
+      <ul>
+        ${lp.essentialQuestions.map((q) => `<li>${q}</li>`).join('')}
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-title">📜 Curriculum & Academic Standards</div>
+  <ul>
+    ${lp.curriculumStandards.map((s) => `<li><strong>${s}</strong></li>`).join('')}
+  </ul>
+
+  <div class="section-title">📦 Required Materials & Technology</div>
+  <ul>
+    ${lp.requiredMaterials.map((m) => `<li>${m}</li>`).join('')}
+  </ul>
+
+  <div class="section-title">⏱️ 5E Instructional Lesson Timeline (${lp.duration})</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Lesson Phase</th>
+        <th style="width: 10%;">Time</th>
+        <th style="width: 35%;">Teacher Actions & Facilitation</th>
+        <th style="width: 30%;">Student Learning Activities</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${lp.timeline.map((step) => `
+        <tr>
+          <td><strong>${step.phase}</strong></td>
+          <td style="text-align: center; font-weight: 700; color: #2563eb;">${step.durationMin} min</td>
+          <td>${step.teacherRole}</td>
+          <td>${step.studentRole}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+
+  <div class="grid-2" style="margin-top: 18px;">
+    <div class="card">
+      <div class="card-title">♿ Differentiation & Scaffolding</div>
+      <div style="font-size: 12.5px; margin-bottom: 6px;"><strong>Support (ESL / Remediation):</strong> ${lp.differentiation.support}</div>
+      <div style="font-size: 12.5px;"><strong>Extension (Gifted / Advanced):</strong> ${lp.differentiation.extension}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Formative Assessment & Homework</div>
+      <div style="font-size: 12.5px; margin-bottom: 6px;"><strong>Assessment Strategy:</strong> ${lp.formativeAssessment}</div>
+      <div style="font-size: 12.5px;"><strong>Homework Assignment:</strong> ${lp.homeworkAssignment}</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 25px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
+    <span>Dewey International School • Educator Standards Board</span>
+    <span>Lesson Plan ID: ${lp.id}</span>
+  </div>
+</body>
+</html>`;
+
+  triggerFileDownload(filename, html, 'text/html');
+}
