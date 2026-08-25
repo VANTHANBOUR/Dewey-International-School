@@ -54,11 +54,31 @@ export interface WorksheetItem {
   }[];
 }
 
+export type LessonPlanScope = 'yearly' | 'quarter' | 'monthly' | 'weekly' | 'daily';
+
+export interface WeeklyLessonEntry {
+  id?: string;
+  lessonName: string; // "Lesson 1", "Lesson 2", "Lesson 3", "Lesson 4"
+  experiencesAndOutcomes: string; // Links to Experiences and Outcomes
+  benchmarksForAssessment: string; // Benchmarks for Assessment
+  resourcesRequired: string; // Resources Required
+  evaluation: string; // Evaluation
+}
+
+export interface WeeklyDaySchedule {
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | string;
+  lessons: WeeklyLessonEntry[];
+}
+
 export interface LessonPlanTimelineStep {
   phase: string;
-  durationMin: number;
+  durationMin?: number;
+  timeSlot?: string;
   teacherRole: string;
   studentRole: string;
+  subject?: string;
+  assessment?: string;
+  resources?: string;
 }
 
 export interface LessonPlanItem {
@@ -66,20 +86,41 @@ export interface LessonPlanItem {
   title: string;
   unit: string;
   grade: GradeLevel;
-  subject: SubjectCategory;
+  subject: SubjectCategory | string;
+  scope?: LessonPlanScope;
   duration: string;
+  weekCommencing?: string;
+  weeklyDays?: WeeklyDaySchedule[];
+  weeklyNotesAndEvaluations?: string;
+  timeDetails?: {
+    academicYear?: string;
+    quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4' | string;
+    month?: string;
+    weekNumber?: string | number;
+    dateRange?: string;
+    startTime?: string;
+    endTime?: string;
+    classPeriod?: string;
+    daysOfWeek?: string[];
+    totalHours?: number;
+  };
+  teacherName?: string;
   curriculumStandards: string[];
   learningObjectives: string[];
   essentialQuestions: string[];
   requiredMaterials: string[];
-  vocabularyTerms: { term: string; definition: string }[];
+  vocabularyTerms?: { term: string; definition: string }[];
   timeline: LessonPlanTimelineStep[];
   formativeAssessment: string;
+  summativeAssessment?: string;
   differentiation: {
     support: string;
     extension: string;
   };
   homeworkAssignment: string;
+  notes?: string;
+  createdAt?: string;
+  createdByUserId?: string;
 }
 
 export interface Resource {

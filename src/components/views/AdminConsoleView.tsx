@@ -29,6 +29,7 @@ import { UserProfile, UserCredentialRecord, GradeLevel } from '../../types';
 import {
   subscribeToAllUserCredentials,
   saveUserCredentialToFirestore,
+  updateUserCredentialInFirestore,
   updateUserPasswordInFirestore,
   deleteUserCredentialFromFirestore,
   seedInitialInstitutionalCredentialsToFirestore,
@@ -39,12 +40,14 @@ import { saveStoredCredential, saveStoredRecentUser } from '../AuthModal';
 interface AdminConsoleViewProps {
   currentUser: UserProfile | null;
   onSwitchUser?: (user: UserProfile) => void;
+  onUserUpdated?: (user: UserProfile) => void;
   onOpenAuthModal?: (mode: 'signin' | 'signup') => void;
 }
 
 export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   currentUser,
   onSwitchUser,
+  onUserUpdated,
   onOpenAuthModal
 }) => {
   const [credentials, setCredentials] = useState<UserCredentialRecord[]>([]);
@@ -178,10 +181,14 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
         .toUpperCase() || 'DU';
 
       const cleanEmail = formEmail.trim().toLowerCase();
+      const existingRecord = credentials.find(
+        c => c.email.toLowerCase() === editingEmail.toLowerCase() || c.email.toLowerCase() === cleanEmail
+      );
+      const userId = existingRecord?.id || `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
       if (isCreatingNew) {
         const newRecord: UserCredentialRecord = {
-          id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: userId,
           email: cleanEmail,
           password: formPassword.trim(),
           name: formName.trim(),
@@ -195,48 +202,101 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
           notes: formNotes.trim()
         };
 
-        await saveUserCredentialToFirestore(newRecord);
+        // 1. Instant optimistic update to local credentials list
+        setCredentials(prev => [newRecord, ...prev.filter(c => c.email.toLowerCase() !== cleanEmail)]);
+
+        // 2. Local credential vault & recent users
+        const newProfile: UserProfile = {
+          id: newRecord.id,
+          name: newRecord.name,
+          email: newRecord.email,
+          role: newRecord.role,
+          initials: newRecord.initials,
+          department: newRecord.department,
+          gradeAssigned: newRecord.gradeAssigned
+        };
         saveStoredCredential({
           email: cleanEmail,
           password: formPassword.trim(),
-          profile: {
-            id: newRecord.id,
-            name: newRecord.name,
-            email: newRecord.email,
-            role: newRecord.role,
-            initials: newRecord.initials,
-            department: newRecord.department,
-            gradeAssigned: newRecord.gradeAssigned
-          }
+          profile: newProfile
         });
+        saveStoredRecentUser(newProfile);
+
+        // 3. Save to Firebase Firestore
+        await saveUserCredentialToFirestore(newRecord);
 
         setStatusMessage({ type: 'success', text: `Successfully registered and stored credentials for ${newRecord.name} in Firebase!` });
       } else {
-        await updateUserPasswordInFirestore(
-          editingEmail,
-          formPassword.trim(),
-          formRole,
-          formDepartment.trim(),
-          formGrade || undefined
-        );
+        const updatedRecord: UserCredentialRecord = {
+          id: userId,
+          email: cleanEmail,
+          password: formPassword.trim(),
+          name: formName.trim(),
+          role: formRole,
+          department: formDepartment.trim() || (formRole === 'Administrator' ? 'Academic Directorate & IT Governance' : 'Dewey Faculty'),
+          gradeAssigned: formGrade ? (formGrade as GradeLevel) : undefined,
+          initials,
+          registeredAt: existingRecord?.registeredAt || new Date().toISOString(),
+          lastLoginAt: existingRecord?.lastLoginAt || new Date().toISOString(),
+          status: 'active',
+          notes: formNotes.trim(),
+          isPreset: existingRecord?.isPreset
+        };
 
-        // Also update stored local vault for seamless offline fallback
+        // 1. Instant optimistic UI update: Update credentials list state immediately so table & details change in 0ms!
+        setCredentials(prev => prev.map(c => {
+          if (c.email.toLowerCase() === editingEmail.toLowerCase() || c.email.toLowerCase() === cleanEmail || c.id === userId) {
+            return updatedRecord;
+          }
+          return c;
+        }));
+
+        // 2. Update stored local vault & recent users
         const updatedProfile: UserProfile = {
-          id: `usr-${Date.now()}`,
+          id: userId,
           name: formName.trim(),
           email: cleanEmail,
           role: formRole,
           initials,
-          department: formDepartment.trim(),
+          department: formDepartment.trim() || 'Dewey Faculty',
           gradeAssigned: formGrade ? (formGrade as GradeLevel) : undefined
         };
+
         saveStoredCredential({
           email: cleanEmail,
           password: formPassword.trim(),
           profile: updatedProfile
         });
+        saveStoredRecentUser(updatedProfile);
 
-        setStatusMessage({ type: 'success', text: `Updated credentials for ${formName} in Firebase Firestore.` });
+        // 3. If currently logged in as this user, update active session in real-time across entire app!
+        if (
+          currentUser &&
+          (currentUser.email.toLowerCase() === editingEmail.toLowerCase() ||
+           currentUser.email.toLowerCase() === cleanEmail ||
+           currentUser.id === userId)
+        ) {
+          if (onUserUpdated) {
+            onUserUpdated(updatedProfile);
+          } else if (onSwitchUser) {
+            onSwitchUser(updatedProfile);
+          }
+        }
+
+        // 4. Save comprehensive update to Firebase Firestore (both user_credentials and users collections)
+        await updateUserCredentialInFirestore(editingEmail, {
+          name: formName.trim(),
+          email: cleanEmail,
+          password: formPassword.trim(),
+          role: formRole,
+          department: formDepartment.trim(),
+          gradeAssigned: formGrade || undefined,
+          notes: formNotes.trim(),
+          initials,
+          id: userId
+        });
+
+        setStatusMessage({ type: 'success', text: `Instantly updated credentials and profile for ${formName.trim()} in Firebase Firestore.` });
       }
 
       setIsEditModalOpen(false);

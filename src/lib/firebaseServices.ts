@@ -237,14 +237,108 @@ export const seedInitialInstitutionalCredentialsToFirestore = async (): Promise<
   }
 };
 
-// Update user password and details in Firestore (Admin function)
+// Update full user credentials and profile details in Firestore (Admin & Profile function)
+export const updateUserCredentialInFirestore = async (
+  originalEmail: string,
+  updatedData: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserProfile['role'];
+    department?: string;
+    gradeAssigned?: any;
+    notes?: string;
+    initials?: string;
+    avatarUrl?: string;
+    id?: string;
+  }
+): Promise<void> => {
+  const oldDocId = getEmailDocId(originalEmail);
+  const cleanEmail = updatedData.email.toLowerCase().trim();
+  const newDocId = getEmailDocId(cleanEmail);
+
+  const initials = updatedData.initials || updatedData.name
+    .split(' ')
+    .filter(Boolean)
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'DU';
+
+  const credRef = doc(db, 'user_credentials', newDocId);
+  const recordToSave: any = {
+    email: cleanEmail,
+    name: updatedData.name.trim(),
+    password: updatedData.password.trim(),
+    role: updatedData.role,
+    department: updatedData.department || 'Dewey Faculty',
+    gradeAssigned: updatedData.gradeAssigned || null,
+    notes: updatedData.notes || '',
+    initials,
+    status: 'active',
+    updatedAt: serverTimestamp()
+  };
+
+  if (updatedData.id) {
+    recordToSave.id = updatedData.id;
+  }
+  if (updatedData.avatarUrl) {
+    recordToSave.avatarUrl = updatedData.avatarUrl;
+  }
+
+  // Save/merge into user_credentials
+  await setDoc(credRef, recordToSave, { merge: true });
+
+  // If email was changed, delete the previous document in user_credentials
+  if (oldDocId !== newDocId) {
+    try {
+      const oldDocRef = doc(db, 'user_credentials', oldDocId);
+      await deleteDoc(oldDocRef);
+    } catch (err) {
+      console.warn('Old credential doc removal notice:', err);
+    }
+  }
+
+  // Also sync to users collection
+  try {
+    const userDocId = updatedData.id || newDocId;
+    const userRef = doc(db, 'users', userDocId);
+    await setDoc(userRef, {
+      name: updatedData.name.trim(),
+      email: cleanEmail,
+      role: updatedData.role,
+      department: updatedData.department || 'Dewey Faculty',
+      gradeAssigned: updatedData.gradeAssigned || null,
+      initials,
+      avatarUrl: updatedData.avatarUrl || null,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (userErr) {
+    console.warn('Could not sync user profile document:', userErr);
+  }
+};
+
+// Update user password and details in Firestore (Admin function - backwards compatible)
 export const updateUserPasswordInFirestore = async (
   email: string,
   newPassword: string,
   newRole?: UserProfile['role'],
   newDepartment?: string,
-  newGrade?: any
+  newGrade?: any,
+  newName?: string
 ): Promise<void> => {
+  if (newName) {
+    await updateUserCredentialInFirestore(email, {
+      name: newName,
+      email,
+      password: newPassword,
+      role: newRole || 'Educator',
+      department: newDepartment,
+      gradeAssigned: newGrade
+    });
+    return;
+  }
+
   const docId = getEmailDocId(email);
   try {
     const credRef = doc(db, 'user_credentials', docId);

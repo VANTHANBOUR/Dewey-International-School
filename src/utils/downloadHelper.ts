@@ -440,24 +440,49 @@ export function downloadWorksheetDocument(resource: Resource, includeAnswerKey: 
 }
 
 /**
- * Generates and triggers download of an educator Lesson Plan document
+ * Generates and triggers download of an educator Lesson Plan document supporting Yearly, Quarter, Monthly, Weekly, and Daily scopes
  */
-export function downloadLessonPlanDocument(resource: Resource) {
-  const lp = getResourceLessonPlan(resource);
-  const safeTitle = resource.title.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Dewey_Lesson_Plan_${safeTitle}_Grade${resource.grade}.html`;
+export function downloadLessonPlanDocument(resourceOrPlan: Resource | LessonPlanItem) {
+  const lp: LessonPlanItem = (resourceOrPlan as Resource).lessonPlan 
+    ? (resourceOrPlan as Resource).lessonPlan!
+    : (resourceOrPlan as LessonPlanItem).title 
+    ? (resourceOrPlan as LessonPlanItem)
+    : getResourceLessonPlan(resourceOrPlan as Resource);
+
+  const scopeLabel = lp.scope 
+    ? (lp.scope === 'yearly' ? 'Yearly Curriculum Plan' 
+       : lp.scope === 'quarter' ? 'Quarterly Pacing Plan'
+       : lp.scope === 'monthly' ? 'Monthly Instructional Plan'
+       : lp.scope === 'weekly' ? 'Weekly Lesson Schedule'
+       : 'Daily Lesson Plan')
+    : 'Educator Lesson Plan';
+
+  const safeTitle = (lp.title || 'Lesson_Plan').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `Dewey_${(lp.scope || 'LessonPlan').toUpperCase()}_${safeTitle}_Grade${lp.grade}.html`;
+
+  const timeDisplay = lp.timeDetails ? (
+    lp.scope === 'daily' 
+      ? `${lp.timeDetails.dateRange ? `Date: ${lp.timeDetails.dateRange} • ` : ''}${lp.timeDetails.classPeriod ? `${lp.timeDetails.classPeriod} • ` : ''}${lp.timeDetails.startTime && lp.timeDetails.endTime ? `${lp.timeDetails.startTime} - ${lp.timeDetails.endTime}` : lp.duration}`
+      : lp.scope === 'weekly'
+      ? `${lp.timeDetails.weekNumber ? `${lp.timeDetails.weekNumber} • ` : ''}${lp.timeDetails.dateRange ? `${lp.timeDetails.dateRange} • ` : ''}${lp.timeDetails.daysOfWeek ? lp.timeDetails.daysOfWeek.join(', ') : ''} (${lp.duration})`
+      : lp.scope === 'monthly'
+      ? `${lp.timeDetails.month || 'Month'} ${lp.timeDetails.academicYear || ''} • Total Hours: ${lp.timeDetails.totalHours || lp.duration}`
+      : lp.scope === 'quarter'
+      ? `${lp.timeDetails.quarter || 'Quarter'} • ${lp.timeDetails.academicYear || 'Academic Year'} • ${lp.duration}`
+      : `Academic Year ${lp.timeDetails.academicYear || '2025-2026'} • ${lp.duration}`
+  ) : lp.duration;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${lp.title} - Dewey International School Educator Plan</title>
+  <title>${lp.title} - Dewey International School ${scopeLabel}</title>
   <style>
-    @page { size: A4; margin: 18mm 15mm; }
+    @page { size: A4; margin: 16mm 14mm; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      color: #1e293b;
+      color: #0f172a;
       background: #ffffff;
       margin: 0;
       padding: 24px;
@@ -465,9 +490,9 @@ export function downloadLessonPlanDocument(resource: Resource) {
       font-size: 13.5px;
     }
     .header {
-      border-bottom: 2px solid #1e40af;
+      border-bottom: 3px solid #1e40af;
       padding-bottom: 12px;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
@@ -479,42 +504,71 @@ export function downloadLessonPlanDocument(resource: Resource) {
       letter-spacing: 0.5px;
       text-transform: uppercase;
     }
-    .badge {
+    .scope-tag {
+      display: inline-block;
       background: #1e40af;
       color: white;
       padding: 3px 10px;
       border-radius: 6px;
-      font-weight: 700;
+      font-weight: 800;
       font-size: 11px;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .section-title {
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 800;
       color: #0f172a;
-      border-bottom: 1.5px solid #e2e8f0;
+      border-bottom: 1.5px solid #cbd5e1;
       padding-bottom: 4px;
-      margin-top: 18px;
-      margin-bottom: 10px;
+      margin-top: 16px;
+      margin-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 0.3px;
+    }
+    .meta-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      font-size: 12.5px;
+    }
+    .meta-field {
+      display: flex;
+      flex-direction: column;
+    }
+    .meta-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .meta-val {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: 13px;
     }
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      margin-bottom: 14px;
+      gap: 12px;
+      margin-bottom: 12px;
     }
     .card {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 8px;
-      padding: 12px 14px;
+      padding: 10px 12px;
     }
     .card-title {
-      font-weight: 700;
+      font-weight: 800;
       color: #1e40af;
-      font-size: 12px;
+      font-size: 11.5px;
       margin-bottom: 6px;
       text-transform: uppercase;
     }
@@ -523,12 +577,12 @@ export function downloadLessonPlanDocument(resource: Resource) {
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 10px;
+      margin-top: 8px;
       font-size: 12.5px;
     }
     th, td {
       border: 1px solid #cbd5e1;
-      padding: 8px 10px;
+      padding: 7px 10px;
       text-align: left;
       vertical-align: top;
     }
@@ -552,6 +606,7 @@ export function downloadLessonPlanDocument(resource: Resource) {
       font-weight: bold;
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(30,64,175,0.3);
+      z-index: 1000;
     }
     @media print {
       .print-btn { display: none; }
@@ -565,81 +620,162 @@ export function downloadLessonPlanDocument(resource: Resource) {
   <div class="header">
     <div>
       <div class="school-title">Dewey International School</div>
-      <div style="font-size: 13px; font-weight: 700; color: #3b82f6; margin-top: 2px;">
-        Curriculum Department • Formal Educator Lesson Plan
+      <div style="font-size: 13px; font-weight: 700; color: #2563eb; margin-top: 2px;">
+        Curriculum & Instruction • ${scopeLabel}
       </div>
       <h1 style="font-size: 17px; margin: 6px 0 0 0; color: #0f172a;">${lp.title}</h1>
       <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">${lp.unit}</p>
     </div>
     <div style="text-align: right;">
-      <span class="badge">Grade ${lp.grade} • ${lp.subject}</span>
-      <div style="font-size: 11.5px; color: #64748b; margin-top: 6px;">Duration: ${lp.duration}</div>
+      <span class="scope-tag">${lp.scope ? lp.scope.toUpperCase() : 'PLAN'}</span>
+      <div style="font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 6px;">
+        Grade ${lp.grade} • ${lp.subject}
+      </div>
     </div>
+  </div>
+
+  <div class="meta-box">
+    <div class="meta-field">
+      <span class="meta-label">Subject & Discipline</span>
+      <span class="meta-val">${lp.subject}</span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">Target Grade Level</span>
+      <span class="meta-val">Grade ${lp.grade}</span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">Instructional Scope / Format</span>
+      <span class="meta-val">${scopeLabel}</span>
+    </div>
+    <div class="meta-field">
+      <span class="meta-label">Schedule / Time Window</span>
+      <span class="meta-val">${timeDisplay}</span>
+    </div>
+    ${lp.teacherName ? `
+      <div class="meta-field">
+        <span class="meta-label">Educator / Instructor</span>
+        <span class="meta-val">${lp.teacherName}</span>
+      </div>
+    ` : ''}
   </div>
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-title">🎯 Learning Objectives</div>
+      <div class="card-title">🎯 Learning Objectives & Competencies</div>
       <ul>
         ${lp.learningObjectives.map((o) => `<li>${o}</li>`).join('')}
       </ul>
     </div>
     <div class="card">
-      <div class="card-title">💡 Essential Questions</div>
+      <div class="card-title">💡 Essential Questions & Core Inquiries</div>
       <ul>
         ${lp.essentialQuestions.map((q) => `<li>${q}</li>`).join('')}
       </ul>
     </div>
   </div>
 
-  <div class="section-title">📜 Curriculum & Academic Standards</div>
+  <div class="section-title">📜 Curriculum & Academic Standards Alignment</div>
   <ul>
     ${lp.curriculumStandards.map((s) => `<li><strong>${s}</strong></li>`).join('')}
   </ul>
 
-  <div class="section-title">📦 Required Materials & Technology</div>
+  <div class="section-title">📦 Required Instructional Materials & Digital Media</div>
   <ul>
     ${lp.requiredMaterials.map((m) => `<li>${m}</li>`).join('')}
   </ul>
 
-  <div class="section-title">⏱️ 5E Instructional Lesson Timeline (${lp.duration})</div>
-  <table>
-    <thead>
-      <tr>
-        <th style="width: 25%;">Lesson Phase</th>
-        <th style="width: 10%;">Time</th>
-        <th style="width: 35%;">Teacher Actions & Facilitation</th>
-        <th style="width: 30%;">Student Learning Activities</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${lp.timeline.map((step) => `
-        <tr>
-          <td><strong>${step.phase}</strong></td>
-          <td style="text-align: center; font-weight: 700; color: #2563eb;">${step.durationMin} min</td>
-          <td>${step.teacherRole}</td>
-          <td>${step.studentRole}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
+  <div class="section-title">
+    ⏱️ Structured ${scopeLabel} Schedule & Instructional Roadmap
+  </div>
 
-  <div class="grid-2" style="margin-top: 18px;">
+  ${(lp.weeklyDays && lp.weeklyDays.length > 0) ? `
+    <div style="margin-bottom: 14px; padding: 10px 14px; background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 8px; font-size: 13px;">
+      <strong style="color: #6d28d9;">Weekly Lesson Planning Template</strong> • Week Commencing: <strong>${lp.weekCommencing || '__________________'}</strong>
+    </div>
+
+    ${lp.weeklyDays.map((dayObj) => `
+      <div style="margin-top: 14px; margin-bottom: 6px; font-size: 14px; font-weight: 800; color: #4338ca; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #818cf8; padding-bottom: 3px;">
+        📅 ${dayObj.day}
+      </div>
+      <table style="margin-bottom: 16px;">
+        <thead>
+          <tr style="background: #312e81;">
+            <th style="width: 14%; color: white;">Lesson</th>
+            <th style="width: 28%; color: white;">Links to Experiences and Outcomes</th>
+            <th style="width: 24%; color: white;">Benchmarks for Assessment</th>
+            <th style="width: 17%; color: white;">Resources Required</th>
+            <th style="width: 17%; color: white;">Evaluation</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${dayObj.lessons.map((lesson) => `
+            <tr>
+              <td style="font-weight: 800; color: #4338ca; background: #faf5ff;">${lesson.lessonName}</td>
+              <td>${lesson.experiencesAndOutcomes || '—'}</td>
+              <td>${lesson.benchmarksForAssessment || '—'}</td>
+              <td>${lesson.resourcesRequired || '—'}</td>
+              <td>${lesson.evaluation || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `).join('')}
+
+    ${lp.weeklyNotesAndEvaluations ? `
+      <div class="card" style="margin-top: 14px; background: #fffbeb; border: 1.5px solid #fde68a;">
+        <div class="card-title" style="color: #92400e; font-size: 12.5px;">📝 Weekly Notes and Evaluations</div>
+        <div style="font-size: 12.5px; color: #78350f; white-space: pre-line; line-height: 1.6;">${lp.weeklyNotesAndEvaluations}</div>
+      </div>
+    ` : ''}
+  ` : `
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 25%;">Phase / Time Frame</th>
+          <th style="width: 12%; text-align: center;">Duration / Slot</th>
+          <th style="width: 33%;">Instructional Activities (Teacher)</th>
+          <th style="width: 30%;">Learner Tasks & Deliverables</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lp.timeline.map((step) => `
+          <tr>
+            <td><strong>${step.phase}</strong></td>
+            <td style="text-align: center; font-weight: 700; color: #1e40af;">
+              ${step.timeSlot || (step.durationMin ? `${step.durationMin} min` : 'Scheduled')}
+            </td>
+            <td>${step.teacherRole}</td>
+            <td>${step.studentRole}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `}
+
+  <div class="grid-2" style="margin-top: 16px;">
     <div class="card">
       <div class="card-title">♿ Differentiation & Scaffolding</div>
-      <div style="font-size: 12.5px; margin-bottom: 6px;"><strong>Support (ESL / Remediation):</strong> ${lp.differentiation.support}</div>
-      <div style="font-size: 12.5px;"><strong>Extension (Gifted / Advanced):</strong> ${lp.differentiation.extension}</div>
+      <div style="font-size: 12px; margin-bottom: 5px;"><strong>Support (ESL / Remediation):</strong> ${lp.differentiation.support}</div>
+      <div style="font-size: 12px;"><strong>Extension (Gifted / Advanced):</strong> ${lp.differentiation.extension}</div>
     </div>
     <div class="card">
-      <div class="card-title">📊 Formative Assessment & Homework</div>
-      <div style="font-size: 12.5px; margin-bottom: 6px;"><strong>Assessment Strategy:</strong> ${lp.formativeAssessment}</div>
-      <div style="font-size: 12.5px;"><strong>Homework Assignment:</strong> ${lp.homeworkAssignment}</div>
+      <div class="card-title">📊 Assessment & Evaluation</div>
+      <div style="font-size: 12px; margin-bottom: 5px;"><strong>Formative:</strong> ${lp.formativeAssessment}</div>
+      ${lp.summativeAssessment ? `<div style="font-size: 12px; margin-bottom: 5px;"><strong>Summative:</strong> ${lp.summativeAssessment}</div>` : ''}
+      <div style="font-size: 12px;"><strong>Independent / Homework:</strong> ${lp.homeworkAssignment}</div>
     </div>
   </div>
 
-  <div style="margin-top: 25px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
-    <span>Dewey International School • Educator Standards Board</span>
-    <span>Lesson Plan ID: ${lp.id}</span>
+  ${lp.notes ? `
+    <div class="card" style="margin-top: 10px;">
+      <div class="card-title">📝 Teacher Reflection & Pedagogical Notes</div>
+      <div style="font-size: 12px; color: #334155;">${lp.notes}</div>
+    </div>
+  ` : ''}
+
+  <div style="margin-top: 25px; padding-top: 10px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #64748b; display: flex; justify-content: space-between;">
+    <span>Dewey International School • Academic Directorate</span>
+    <span>Plan ID: ${lp.id} • Generated ${new Date().toLocaleDateString()}</span>
   </div>
 </body>
 </html>`;

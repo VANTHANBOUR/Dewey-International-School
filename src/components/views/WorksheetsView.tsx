@@ -12,9 +12,14 @@ import {
   Sparkles,
   Printer,
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  PlusCircle,
+  Calendar,
+  CalendarDays,
+  CalendarRange,
+  Timer
 } from 'lucide-react';
-import { Resource, GradeLevel, SubjectCategory } from '../../types';
+import { Resource, GradeLevel, SubjectCategory, LessonPlanItem, LessonPlanScope } from '../../types';
 import {
   downloadWorksheetDocument,
   downloadLessonPlanDocument,
@@ -25,18 +30,23 @@ import { GRADE_COLORS } from '../../data/mockData';
 
 interface WorksheetsViewProps {
   resources: Resource[];
+  customLessonPlans?: LessonPlanItem[];
   onOpenResource: (resource: Resource) => void;
   onOpenUploadModal: () => void;
+  onOpenCreateLessonPlanModal?: () => void;
 }
 
 export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
   resources,
+  customLessonPlans = [],
   onOpenResource,
   onOpenUploadModal,
+  onOpenCreateLessonPlanModal,
 }) => {
-  const [activeType, setActiveType] = useState<'all' | 'worksheets' | 'lesson_plans'>('all');
+  const [activeType, setActiveType] = useState<'all' | 'worksheets' | 'lesson_plans' | 'custom_plans'>('all');
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [selectedScope, setSelectedScope] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
 
@@ -57,6 +67,24 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
     });
   }, [resources, selectedGrade, selectedSubject, searchQuery]);
 
+  const filteredCustomPlans = useMemo(() => {
+    return customLessonPlans.filter((p) => {
+      if (selectedGrade !== 'all' && p.grade !== selectedGrade) return false;
+      if (selectedSubject !== 'all' && p.subject !== selectedSubject) return false;
+      if (selectedScope !== 'all' && p.scope !== selectedScope) return false;
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const matches =
+          p.title.toLowerCase().includes(q) ||
+          p.unit.toLowerCase().includes(q) ||
+          p.subject.toLowerCase().includes(q) ||
+          p.grade.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      return true;
+    });
+  }, [customLessonPlans, selectedGrade, selectedSubject, selectedScope, searchQuery]);
+
   const handleDownloadWS = (res: Resource, includeKey: boolean = true) => {
     downloadWorksheetDocument(res, includeKey);
     const ws = getResourceWorksheet(res);
@@ -64,15 +92,31 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
     setTimeout(() => setDownloadToast(null), 3000);
   };
 
-  const handleDownloadLP = (res: Resource) => {
-    downloadLessonPlanDocument(res);
-    const lp = getResourceLessonPlan(res);
-    setDownloadToast(`Downloaded Lesson Plan: ${lp.title}`);
+  const handleDownloadLP = (resOrPlan: Resource | LessonPlanItem) => {
+    downloadLessonPlanDocument(resOrPlan);
+    const title = (resOrPlan as LessonPlanItem).title || (resOrPlan as Resource).title;
+    setDownloadToast(`Downloaded Lesson Plan: ${title}`);
     setTimeout(() => setDownloadToast(null), 3000);
   };
 
   const gradesList: (GradeLevel | 'all')[] = ['all', 'K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
   const subjectsList = ['all', 'Science', 'Mathematics', 'English', 'Social Studies', 'Technology', 'Engineering', 'Arts', 'Physical Education'];
+
+  const getScopeBadge = (scope?: LessonPlanScope) => {
+    switch (scope) {
+      case 'yearly':
+        return { label: 'Yearly Plan', bg: 'bg-amber-100 text-amber-900 border-amber-300', icon: CalendarRange };
+      case 'quarter':
+        return { label: 'Quarter Plan', bg: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: CalendarDays };
+      case 'monthly':
+        return { label: 'Monthly Plan', bg: 'bg-blue-100 text-blue-900 border-blue-300', icon: Calendar };
+      case 'weekly':
+        return { label: 'Weekly Plan', bg: 'bg-violet-100 text-violet-900 border-violet-300', icon: Clock };
+      case 'daily':
+      default:
+        return { label: 'Daily Plan', bg: 'bg-rose-100 text-rose-900 border-rose-300', icon: Timer };
+    }
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -89,25 +133,40 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-96 bg-gradient-to-l from-blue-500/10 to-transparent pointer-events-none"></div>
-        <div className="relative z-10 max-w-2xl">
+        <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-bold uppercase tracking-wider mb-3">
             <GraduationCap size={15} />
-            <span>Dewey Academic Resources Hub</span>
+            <span>Dewey Academic Curriculum & Planning Center</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Worksheets & Lesson Plans
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 font-normal mt-2 leading-relaxed">
-            Download print-ready student practice worksheets with answer keys and complete 5E instructional lesson plans aligned to Dewey International School curriculum standards.
+            Generate and download print-ready student practice worksheets, full 5E lesson schedules, and multi-tier curriculum plans (Yearly, Quarter, Monthly, Weekly, and Daily) aligned with Dewey International School standards.
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            {/* Create Lesson Plan Button */}
+            {onOpenCreateLessonPlanModal && (
+              <button
+                id="btn-create-lesson-plan-header"
+                onClick={onOpenCreateLessonPlanModal}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-extrabold shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 border border-amber-300/30 transform hover:-translate-y-0.5"
+              >
+                <PlusCircle size={16} />
+                <span>Create Lesson Plan</span>
+                <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
+                  Yearly • Quarter • Monthly • Weekly • Daily
+                </span>
+              </button>
+            )}
+
             <button
               onClick={onOpenUploadModal}
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 border border-blue-400/30"
             >
               <Sparkles size={15} />
-              <span>Upload New Teaching Material</span>
+              <span>Upload Teaching Material</span>
             </button>
           </div>
         </div>
@@ -122,45 +181,70 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search worksheets, topics, or lesson plans..."
+              placeholder="Search worksheets, scopes, subjects, or lesson plans..."
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           </div>
 
-          {/* Type Selector (All / Worksheets / Lesson Plans) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl shrink-0">
-            <button
-              onClick={() => setActiveType('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeType === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All Teaching Items
-            </button>
-            <button
-              onClick={() => setActiveType('worksheets')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeType === 'worksheets' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileSpreadsheet size={13} />
-              <span>Worksheets</span>
-            </button>
-            <button
-              onClick={() => setActiveType('lesson_plans')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeType === 'lesson_plans' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers size={13} />
-              <span>Lesson Plans</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Create Lesson Plan Fast Button */}
+            {onOpenCreateLessonPlanModal && (
+              <button
+                id="btn-create-lesson-plan-filterbar"
+                onClick={onOpenCreateLessonPlanModal}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <PlusCircle size={14} />
+                <span>Create Lesson Plan</span>
+              </button>
+            )}
+
+            {/* Type Selector */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl shrink-0">
+              <button
+                onClick={() => setActiveType('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  activeType === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All Items
+              </button>
+              <button
+                onClick={() => setActiveType('lesson_plans')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeType === 'lesson_plans' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers size={13} />
+                <span>Lesson Plans</span>
+              </button>
+              <button
+                onClick={() => setActiveType('worksheets')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeType === 'worksheets' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileSpreadsheet size={13} />
+                <span>Worksheets</span>
+              </button>
+              {customLessonPlans.length > 0 && (
+                <button
+                  onClick={() => setActiveType('custom_plans')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    activeType === 'custom_plans' ? 'bg-amber-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <CalendarRange size={13} />
+                  <span>Created Plans ({customLessonPlans.length})</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Grade and Subject Filters */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Grade:</span>
           <div className="flex gap-1 overflow-x-auto no-scrollbar py-1">
             {gradesList.map((g) => (
@@ -178,7 +262,7 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Subject:</span>
             <select
               value={selectedSubject}
@@ -191,111 +275,227 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
                 </option>
               ))}
             </select>
+
+            {(activeType === 'lesson_plans' || activeType === 'custom_plans' || activeType === 'all') && (
+              <>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider ml-1">Scope:</span>
+                <select
+                  value={selectedScope}
+                  onChange={(e) => setSelectedScope(e.target.value)}
+                  className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Scopes</option>
+                  <option value="yearly">Yearly Plan</option>
+                  <option value="quarter">Quarter Plan</option>
+                  <option value="monthly">Monthly Plan</option>
+                  <option value="weekly">Weekly Plan</option>
+                  <option value="daily">Daily Plan</option>
+                </select>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Grid of Materials */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredResources.map((res) => {
-          const ws = getResourceWorksheet(res);
-          const lp = getResourceLessonPlan(res);
-
-          return (
-            <div
-              key={res.id}
-              className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-xl transition-all duration-200 flex flex-col justify-between"
-            >
-              <div>
-                {/* Top badges */}
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800">
-                    Grade {res.grade} • {res.subject}
-                  </span>
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    {res.format.toUpperCase()}
-                  </span>
-                </div>
-
-                {/* Resource Title */}
-                <h3 className="font-extrabold text-base text-slate-900 leading-snug">
-                  {res.title}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium mt-1">
-                  {res.subtitle}
-                </p>
-
-                {/* Package Features List */}
-                <div className="mt-4 space-y-2 bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs text-slate-700">
-                  {/* Worksheet Info */}
-                  <div className="flex items-start gap-2">
-                    <FileSpreadsheet size={15} className="text-blue-600 mt-0.5 shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-900">Student Practice Worksheet</div>
-                      <div className="text-[11px] text-slate-500">
-                        {ws.questions.length} Questions • {ws.totalPoints} Pts • Answer Key Included
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Lesson Plan Info */}
-                  <div className="flex items-start gap-2 pt-2 border-t border-slate-200/60">
-                    <Layers size={15} className="text-indigo-600 mt-0.5 shrink-0" />
-                    <div>
-                      <div className="font-bold text-slate-900">Educator 5E Lesson Plan</div>
-                      <div className="text-[11px] text-slate-500">
-                        {lp.duration} • Standards Aligned • Differentiated
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="mt-5 pt-3 border-t border-slate-100 space-y-2">
-                {/* Download Worksheet Button */}
-                {(activeType === 'all' || activeType === 'worksheets') && (
-                  <button
-                    id={`download-ws-${res.id}`}
-                    onClick={() => handleDownloadWS(res, true)}
-                    className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-blue-200/60 hover:border-blue-600 shadow-2xs group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet size={14} className="group-hover:text-white text-blue-600" />
-                      <span>Download Worksheet</span>
-                    </div>
-                    <Download size={14} />
-                  </button>
-                )}
-
-                {/* Download Lesson Plan Button */}
-                {(activeType === 'all' || activeType === 'lesson_plans') && (
-                  <button
-                    id={`download-lp-${res.id}`}
-                    onClick={() => handleDownloadLP(res)}
-                    className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-indigo-200/60 hover:border-indigo-600 shadow-2xs group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers size={14} className="group-hover:text-white text-indigo-600" />
-                      <span>Download Lesson Plan</span>
-                    </div>
-                    <Download size={14} />
-                  </button>
-                )}
-
-                {/* Open Digital Reader */}
-                <button
-                  onClick={() => onOpenResource(res)}
-                  className="w-full py-1.5 text-center text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
-                >
-                  <BookOpen size={13} />
-                  <span>Open Flipbook / PDF</span>
-                </button>
-              </div>
+      {/* Custom Created Lesson Plans Section (if any or when filtered) */}
+      {(activeType === 'all' || activeType === 'custom_plans' || activeType === 'lesson_plans') && filteredCustomPlans.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+              <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+                Teacher-Created Lesson Plans ({filteredCustomPlans.length})
+              </h2>
             </div>
-          );
-        })}
-      </div>
+            {onOpenCreateLessonPlanModal && (
+              <button
+                onClick={onOpenCreateLessonPlanModal}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                <PlusCircle size={14} />
+                <span>New Lesson Plan</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredCustomPlans.map((plan) => {
+              const scopeBadge = getScopeBadge(plan.scope);
+              const IconComp = scopeBadge.icon;
+
+              return (
+                <div
+                  key={plan.id}
+                  className="bg-white rounded-2xl border-2 border-amber-200/80 p-5 shadow-sm hover:shadow-xl transition-all duration-200 flex flex-col justify-between relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-100/50 to-transparent pointer-events-none rounded-bl-full"></div>
+
+                  <div>
+                    {/* Top Badges */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-md border flex items-center gap-1 ${scopeBadge.bg}`}>
+                        <IconComp size={12} />
+                        <span>{scopeBadge.label}</span>
+                      </span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">
+                        Grade {plan.grade} • {plan.subject}
+                      </span>
+                    </div>
+
+                    {/* Plan Title & Unit */}
+                    <h3 className="font-extrabold text-base text-slate-900 leading-snug">
+                      {plan.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                      {plan.unit}
+                    </p>
+
+                    {/* Meta Box */}
+                    <div className="mt-4 space-y-1.5 bg-amber-50/50 rounded-xl p-3 border border-amber-100 text-xs text-slate-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500">Duration / Slot:</span>
+                        <span className="font-bold text-slate-900">{plan.duration}</span>
+                      </div>
+                      {plan.teacherName && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-500">Instructor:</span>
+                          <span className="font-semibold text-slate-800">{plan.teacherName}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-500">
+                          {plan.scope === 'weekly' && plan.weeklyDays ? 'Weekly Schedule:' : 'Schedule Phases:'}
+                        </span>
+                        <span className="font-bold text-amber-800">
+                          {plan.scope === 'weekly' && plan.weeklyDays
+                            ? `${plan.weeklyDays.length} Days • ${plan.weeklyDays.reduce((acc, d) => acc + d.lessons.length, 0)} Lessons`
+                            : `${plan.timeline.length} Steps`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center gap-2">
+                    <button
+                      onClick={() => handleDownloadLP(plan)}
+                      className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20"
+                    >
+                      <Download size={14} />
+                      <span>Download & Print Plan</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Grid of Institutional Resource Materials */}
+      {activeType !== 'custom_plans' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredResources.map((res) => {
+            const ws = getResourceWorksheet(res);
+            const lp = getResourceLessonPlan(res);
+
+            return (
+              <div
+                key={res.id}
+                className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-xl transition-all duration-200 flex flex-col justify-between"
+              >
+                <div>
+                  {/* Top badges */}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800">
+                      Grade {res.grade} • {res.subject}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400">
+                      {res.format.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Resource Title */}
+                  <h3 className="font-extrabold text-base text-slate-900 leading-snug">
+                    {res.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-1">
+                    {res.subtitle}
+                  </p>
+
+                  {/* Package Features List */}
+                  <div className="mt-4 space-y-2 bg-slate-50 rounded-xl p-3 border border-slate-100 text-xs text-slate-700">
+                    {/* Worksheet Info */}
+                    <div className="flex items-start gap-2">
+                      <FileSpreadsheet size={15} className="text-blue-600 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-900">Student Practice Worksheet</div>
+                        <div className="text-[11px] text-slate-500">
+                          {ws.questions.length} Questions • {ws.totalPoints} Pts • Answer Key Included
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lesson Plan Info */}
+                    <div className="flex items-start gap-2 pt-2 border-t border-slate-200/60">
+                      <Layers size={15} className="text-indigo-600 mt-0.5 shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-900">Educator 5E Lesson Plan</div>
+                        <div className="text-[11px] text-slate-500">
+                          {lp.duration} • Standards Aligned • Differentiated
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="mt-5 pt-3 border-t border-slate-100 space-y-2">
+                  {/* Download Worksheet Button */}
+                  {(activeType === 'all' || activeType === 'worksheets') && (
+                    <button
+                      id={`download-ws-${res.id}`}
+                      onClick={() => handleDownloadWS(res, true)}
+                      className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-blue-200/60 hover:border-blue-600 shadow-2xs group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet size={14} className="group-hover:text-white text-blue-600" />
+                        <span>Download Worksheet</span>
+                      </div>
+                      <Download size={14} />
+                    </button>
+                  )}
+
+                  {/* Download Lesson Plan Button */}
+                  {(activeType === 'all' || activeType === 'lesson_plans') && (
+                    <button
+                      id={`download-lp-${res.id}`}
+                      onClick={() => handleDownloadLP(res)}
+                      className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-indigo-200/60 hover:border-indigo-600 shadow-2xs group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers size={14} className="group-hover:text-white text-indigo-600" />
+                        <span>Download Lesson Plan</span>
+                      </div>
+                      <Download size={14} />
+                    </button>
+                  )}
+
+                  {/* Open Digital Reader */}
+                  <button
+                    onClick={() => onOpenResource(res)}
+                    className="w-full py-1.5 text-center text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <BookOpen size={13} />
+                    <span>Open Flipbook / PDF</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
+

@@ -11,6 +11,7 @@ interface FeaturedResourcesProps {
   onToggleMyLibrary?: (id: string, e: React.MouseEvent) => void;
   onOpenShareModal?: (resource: Resource, e: React.MouseEvent) => void;
   onOpenUploadModal?: () => void;
+  onOpenCreateLessonPlanModal?: () => void;
   onViewAll?: () => void;
 }
 
@@ -21,6 +22,7 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
   onToggleMyLibrary,
   onOpenShareModal,
   onOpenUploadModal,
+  onOpenCreateLessonPlanModal,
   onViewAll,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -59,10 +61,20 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
 
       {/* Section Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <h2 className="text-lg sm:text-xl font-extrabold text-[#0f172a] tracking-tight">
             Featured Curriculum Books
           </h2>
+          {onOpenCreateLessonPlanModal && (
+            <button
+              id="featured-create-lesson-plan-btn"
+              onClick={onOpenCreateLessonPlanModal}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-xs font-bold transition-colors border border-amber-300/60"
+            >
+              <Plus size={13} />
+              <span>Create Lesson Plan</span>
+            </button>
+          )}
           {onOpenUploadModal && (
             <button
               id="featured-add-book-btn"

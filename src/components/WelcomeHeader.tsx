@@ -12,6 +12,7 @@ interface WelcomeHeaderProps {
   currentUser?: UserProfile | null;
   onOpenAuthModal?: (mode: 'signin' | 'signup') => void;
   onOpenUploadModal?: () => void;
+  onOpenCreateLessonPlanModal?: () => void;
   onViewMyLibrary?: () => void;
 }
 
@@ -25,6 +26,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   currentUser,
   onOpenAuthModal,
   onOpenUploadModal,
+  onOpenCreateLessonPlanModal,
   onViewMyLibrary,
 }) => {
   const firstName = currentUser?.name ? currentUser.name.split(' ')[0] : null;
@@ -48,17 +50,32 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
             )}
           </h1>
 
-          {/* Direct "Add Book" Quick Action on Dashboard */}
-          {onOpenUploadModal && (
-            <button
-              id="header-add-book-btn"
-              onClick={onOpenUploadModal}
-              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
-            >
-              <Plus size={16} />
-              <span>Add Book</span>
-            </button>
-          )}
+          {/* Quick Actions on Dashboard */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Create Lesson Plan Button */}
+            {onOpenCreateLessonPlanModal && (
+              <button
+                id="header-create-lesson-plan-btn"
+                onClick={onOpenCreateLessonPlanModal}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-amber-500/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-amber-300/30"
+              >
+                <Plus size={16} />
+                <span>Create Lesson Plan</span>
+              </button>
+            )}
+
+            {/* Direct "Add Book" Quick Action on Dashboard */}
+            {onOpenUploadModal && (
+              <button
+                id="header-add-book-btn"
+                onClick={onOpenUploadModal}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+              >
+                <Plus size={16} />
+                <span>Add Book</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2 flex-wrap">

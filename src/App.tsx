@@ -9,6 +9,7 @@ import { ResourceCategories } from './components/ResourceCategories';
 import { FlipbookReaderModal } from './components/FlipbookReaderModal';
 import { UploadResourceModal } from './components/UploadResourceModal';
 import { ShareResourceModal } from './components/ShareResourceModal';
+import { CreateLessonPlanModal } from './components/CreateLessonPlanModal';
 import { AuthModal, PRESET_ACCOUNTS } from './components/AuthModal';
 
 import { GradesView } from './components/views/GradesView';
@@ -22,7 +23,7 @@ import { WorksheetsView } from './components/views/WorksheetsView';
 import { AdminConsoleView } from './components/views/AdminConsoleView';
 
 import { INITIAL_RESOURCES, INITIAL_NOTIFICATIONS } from './data/mockData';
-import { Resource, GradeLevel, ActiveNavTab, SubjectCategory, NotificationItem, UserProfile, UserPersonalData } from './types';
+import { Resource, GradeLevel, ActiveNavTab, SubjectCategory, NotificationItem, UserProfile, UserPersonalData, LessonPlanItem } from './types';
 import { 
   auth, 
   onAuthStateChanged 
@@ -80,7 +81,22 @@ export default function App() {
   // Modal states
   const [activeReaderResource, setActiveReaderResource] = useState<Resource | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isCreateLessonPlanOpen, setIsCreateLessonPlanOpen] = useState(false);
   const [shareTargetResource, setShareTargetResource] = useState<Resource | null>(null);
+
+  // Custom Created Lesson Plans (Yearly, Quarter, Monthly, Weekly, Daily)
+  const [customLessonPlans, setCustomLessonPlans] = useState<LessonPlanItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('dewey_custom_lesson_plans');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load custom lesson plans', e);
+    }
+    return [];
+  });
 
   // When currentUser changes, reload their isolated personal data
   useEffect(() => {
@@ -234,6 +250,48 @@ export default function App() {
     // Immediately trigger the Sign In pop-up on sign out
     setAuthModalMode('signin');
     setIsAuthModalOpen(true);
+  };
+
+  // Real-time optimistic user profile update handler across all views
+  const handleUserUpdated = (updatedUser: UserProfile) => {
+    setCurrentUser(updatedUser);
+    try {
+      localStorage.setItem('dewey_auth_user', JSON.stringify(updatedUser));
+    } catch (e) {
+      console.warn('Storage sync notice:', e);
+    }
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Profile Updated',
+      message: `User details for "${updatedUser.name}" were updated instantly across Dewey portal.`,
+      time: 'Just now',
+      isRead: false,
+      type: 'system'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Save custom lesson plan handler (Yearly, Quarter, Monthly, Weekly, Daily)
+  const handleSaveCustomLessonPlan = (plan: LessonPlanItem) => {
+    setCustomLessonPlans(prev => {
+      const updated = [plan, ...prev.filter(p => p.id !== plan.id)];
+      try {
+        localStorage.setItem('dewey_custom_lesson_plans', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save lesson plan to storage', e);
+      }
+      return updated;
+    });
+
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Lesson Plan Created',
+      message: `"${plan.title}" (${(plan.scope || 'Plan').toUpperCase()}) has been saved to your Curriculum Center.`,
+      time: 'Just now',
+      isRead: false,
+      type: 'curriculum'
+    };
+    setNotifications(prev => [notif, ...prev]);
   };
 
   // Filtered resources for Dashboard Featured section
@@ -454,6 +512,7 @@ export default function App() {
                 currentUser={currentUser}
                 onOpenAuthModal={handleOpenAuthModal}
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
+                onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
                 onViewMyLibrary={() => setActiveTab('library')}
               />
 
@@ -471,6 +530,7 @@ export default function App() {
                 onToggleMyLibrary={handleToggleMyLibrary}
                 onOpenShareModal={handleOpenShareModal}
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
+                onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
                 onViewAll={() => setActiveTab('library')}
               />
 
@@ -522,8 +582,10 @@ export default function App() {
           {activeTab === 'worksheets' && (
             <WorksheetsView
               resources={resources}
+              customLessonPlans={customLessonPlans}
               onOpenResource={handleOpenResource}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
+              onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
             />
           )}
 
@@ -578,6 +640,7 @@ export default function App() {
             <AdminConsoleView
               currentUser={currentUser}
               onSwitchUser={(u) => handleLoginSuccess(u)}
+              onUserUpdated={handleUserUpdated}
               onOpenAuthModal={handleOpenAuthModal}
             />
           )}
@@ -611,6 +674,15 @@ export default function App() {
         onAddResource={handleAddResource}
         onNavigateToLibrary={() => setActiveTab('library')}
         currentUser={currentUser}
+      />
+
+      {/* Create Custom Multi-Scope Lesson Plan Modal */}
+      <CreateLessonPlanModal
+        isOpen={isCreateLessonPlanOpen}
+        onClose={() => setIsCreateLessonPlanOpen(false)}
+        onSavePlan={handleSaveCustomLessonPlan}
+        currentUser={currentUser}
+        initialGrade={selectedGrade || '9'}
       />
 
       {/* Share Resource Modal */}
