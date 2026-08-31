@@ -467,7 +467,7 @@ export function generateLessonPlanHTML(resourceOrPlan: Resource | LessonPlanItem
     ? (lp.scope === 'yearly' ? 'Yearly Curriculum Plan' 
        : lp.scope === 'quarter' ? 'Quarterly Pacing Plan'
        : lp.scope === 'monthly' ? 'Monthly Instructional Plan'
-       : lp.scope === 'weekly' ? 'Weekly Lesson Schedule'
+       : lp.scope === 'weekly' ? 'Weekly Plan'
        : 'Daily Lesson Plan')
     : 'Educator Lesson Plan';
 
@@ -670,6 +670,42 @@ export function generateLessonPlanHTML(resourceOrPlan: Resource | LessonPlanItem
     ` : ''}
   </div>
 
+  ${lp.scope === 'monthly' && lp.monthlyTheme ? `
+    <div class="card" style="margin-bottom: 14px; background: #fff7ed; border: 1.5px solid #fdba74;">
+      <div class="card-title" style="color: #9a3412; font-size: 12.5px;">🌟 Monthly Thematic Focus</div>
+      <div style="font-size: 13px; color: #7c2d12;">${lp.monthlyTheme}</div>
+    </div>
+  ` : ''}
+
+  ${lp.scope === 'monthly' && lp.monthlyWeeklyBreakdown ? `
+    <div class="section-title">🗓️ Weekly Breakdown</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Week</th><th>Topic</th><th>Objectives</th><th>Activities</th><th>Resources</th><th>Assessment</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${lp.monthlyWeeklyBreakdown.map(w => `
+          <tr>
+            <td>${w.week}</td><td>${w.topic}</td><td>${w.objectives}</td><td>${w.activities}</td><td>${w.resources}</td><td>${w.assessment}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : ''}
+
+  ${lp.scope === 'daily' && lp.timeDetails ? `
+    <div class="card" style="margin-bottom: 14px; background: #fff1f2; border: 1.5px solid #fda4af;">
+      <div class="card-title" style="color: #9f1239; font-size: 12.5px;">📅 Daily Schedule Details</div>
+      <div style="font-size: 13px; color: #881337; display: flex; gap: 20px;">
+        <span><strong>Date:</strong> ${lp.timeDetails.dateRange || 'N/A'}</span>
+        <span><strong>Period:</strong> ${lp.timeDetails.classPeriod || 'N/A'}</span>
+        <span><strong>Duration:</strong> ${lp.duration}</span>
+      </div>
+    </div>
+  ` : ''}
+
   <div class="grid-2">
     <div class="card">
       <div class="card-title">🎯 Learning Objectives & Competencies</div>
@@ -695,12 +731,37 @@ export function generateLessonPlanHTML(resourceOrPlan: Resource | LessonPlanItem
     ${lp.requiredMaterials.map((m) => `<li>${m}</li>`).join('')}
   </ul>
 
+  ${(lp.timeline && lp.timeline.length > 0 && lp.scope === 'daily') ? `
   <div class="section-title">
     ⏱️ Structured ${scopeLabel} Schedule & Instructional Roadmap
   </div>
 
-  ${(lp.weeklyDays && lp.weeklyDays.length > 0) ? `
-    <div style="margin-bottom: 14px; padding: 10px 14px; background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 8px; font-size: 13px;">
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Phase / Time Frame</th>
+        <th style="width: 12%; text-align: center;">Duration / Slot</th>
+        <th style="width: 33%;">Instructional Activities (Teacher)</th>
+        <th style="width: 30%;">Learner Tasks & Deliverables</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${lp.timeline.map((step) => `
+        <tr>
+          <td><strong>${step.phase}</strong></td>
+          <td style="text-align: center; font-weight: 700; color: #1e40af;">
+            ${step.timeSlot || (step.durationMin ? `${step.durationMin} min` : 'Scheduled')}
+          </td>
+          <td>${step.teacherRole}</td>
+          <td>${step.studentRole}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+  ` : ''}
+
+  ${(lp.scope === 'weekly' && lp.weeklyDays && lp.weeklyDays.length > 0) ? `
+    <div style="margin-top: 20px; margin-bottom: 14px; padding: 10px 14px; background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 8px; font-size: 13px;">
       <strong style="color: #6d28d9;">Weekly Lesson Planning Template</strong> • Week Commencing: <strong>${lp.weekCommencing || '__________________'}</strong>
     </div>
 
@@ -738,30 +799,7 @@ export function generateLessonPlanHTML(resourceOrPlan: Resource | LessonPlanItem
         <div style="font-size: 12.5px; color: #78350f; white-space: pre-line; line-height: 1.6;">${lp.weeklyNotesAndEvaluations}</div>
       </div>
     ` : ''}
-  ` : `
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 25%;">Phase / Time Frame</th>
-          <th style="width: 12%; text-align: center;">Duration / Slot</th>
-          <th style="width: 33%;">Instructional Activities (Teacher)</th>
-          <th style="width: 30%;">Learner Tasks & Deliverables</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${lp.timeline.map((step) => `
-          <tr>
-            <td><strong>${step.phase}</strong></td>
-            <td style="text-align: center; font-weight: 700; color: #1e40af;">
-              ${step.timeSlot || (step.durationMin ? `${step.durationMin} min` : 'Scheduled')}
-            </td>
-            <td>${step.teacherRole}</td>
-            <td>${step.studentRole}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `}
+  ` : ''}
 
   <div class="grid-2" style="margin-top: 16px;">
     <div class="card">

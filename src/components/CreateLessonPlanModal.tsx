@@ -324,6 +324,15 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
   const [targetMonth, setTargetMonth] = useState('October 2025');
   const [monthlyHours, setMonthlyHours] = useState('36 Instructional Hours');
+  const [monthlyTheme, setMonthlyTheme] = useState('');
+  
+  // Weekly Breakdown state (simple for now: 4 weeks)
+  const [weeklyBreakdown, setWeeklyBreakdown] = useState([
+    { week: 'Week 1', topic: '', objectives: '', activities: '', resources: '', assessment: '' },
+    { week: 'Week 2', topic: '', objectives: '', activities: '', resources: '', assessment: '' },
+    { week: 'Week 3', topic: '', objectives: '', activities: '', resources: '', assessment: '' },
+    { week: 'Week 4', topic: '', objectives: '', activities: '', resources: '', assessment: '' },
+  ]);
 
   const [targetQuarter, setTargetQuarter] = useState<'Q1' | 'Q2' | 'Q3' | 'Q4'>('Q1');
   const [quarterWeeks, setQuarterWeeks] = useState('9 Weeks (72 Total Hours)');
@@ -437,7 +446,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
   // Update default titles when scope, subject or grade changes if not dirty
   useEffect(() => {
     if (isExplicitlyCleared) return;
-    if (!title || title.startsWith('Curriculum') || title.startsWith('Lesson') || title.startsWith('Quarter') || title.startsWith('Monthly') || title.startsWith('Yearly') || title.startsWith('Weekly')) {
+    if (!title || title.startsWith('Curriculum') || title.startsWith('Lesson') || title.startsWith('Daily') || title.startsWith('Quarter') || title.startsWith('Monthly') || title.startsWith('Yearly') || title.startsWith('Weekly')) {
       const scopeName = SCOPE_OPTIONS.find(s => s.id === scope)?.title || 'Lesson Plan';
       setTitle(`${scopeName}: Grade ${grade} ${subject} Instructional Framework`);
       setUnit(`Unit ${scope === 'yearly' ? '1–8' : scope === 'quarter' ? '1–2' : '3'}: Foundations & Advanced Applications in ${subject}`);
@@ -461,6 +470,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
     setWeeklyNotesAndEvaluations('');
     setTargetMonth('');
     setMonthlyHours('');
+    setMonthlyTheme('');
     setAcademicYear('');
     setQuarterWeeks('');
     setYearlyTerms('');
@@ -1128,6 +1138,8 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
       },
       homeworkAssignment: homework,
       notes: notes || weeklyNotesAndEvaluations,
+      monthlyTheme: monthlyTheme,
+      monthlyWeeklyBreakdown: weeklyBreakdown,
       createdAt: new Date().toISOString(),
       createdByUserId: currentUser?.id,
       createdByUserEmail: currentUser?.email,
@@ -1568,31 +1580,53 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
             {/* Monthly Inputs */}
             {scope === 'monthly' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Target Month & Year
-                  </label>
-                  <input
-                    type="text"
-                    value={targetMonth}
-                    onChange={(e) => setTargetMonth(e.target.value)}
-                    placeholder="November 2025"
-                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
-                  />
+              <div className="space-y-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Monthly Thematic Focus</label>
+                    <input type="text" value={monthlyTheme} onChange={(e) => setMonthlyTheme(e.target.value)} className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Target Month & Year</label>
+                    <input type="text" value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)} className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs" />
+                  </div>
                 </div>
+
+                {/* Weekly Breakdown Table */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Total Instructional Volume
-                  </label>
-                  <input
-                    type="text"
-                    value={monthlyHours}
-                    onChange={(e) => setMonthlyHours(e.target.value)}
-                    placeholder="16 Sessions • 32 Hours Total"
-                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
-                  />
+                  <label className="block text-xs font-bold text-slate-700 mb-2">🗓️ Weekly Breakdown</label>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-orange-100/50">
+                          <th className="p-1 border border-orange-200">Week</th>
+                          <th className="p-1 border border-orange-200">Topic</th>
+                          <th className="p-1 border border-orange-200">Objectives</th>
+                          <th className="p-1 border border-orange-200">Activities</th>
+                          <th className="p-1 border border-orange-200">Resources</th>
+                          <th className="p-1 border border-orange-200">Assessment</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {weeklyBreakdown.map((row, index) => (
+                          <tr key={index}>
+                            <td className="p-1 border border-orange-200 font-semibold">{row.week}</td>
+                            {(['topic', 'objectives', 'activities', 'resources', 'assessment'] as const).map(field => (
+                              <td key={field} className="p-0 border border-orange-200">
+                                <input type="text" value={row[field]} onChange={(e) => {
+                                  const next = [...weeklyBreakdown];
+                                  next[index][field] = e.target.value;
+                                  setWeeklyBreakdown(next);
+                                }} className="w-full px-1 py-1 bg-transparent focus:bg-white" />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+
               </div>
             )}
 

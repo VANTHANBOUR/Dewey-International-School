@@ -119,6 +119,15 @@ export interface LessonPlanItem {
   };
   homeworkAssignment: string;
   notes?: string;
+  monthlyTheme?: string;
+  monthlyWeeklyBreakdown?: {
+    week: string;
+    topic: string;
+    objectives: string;
+    activities: string;
+    resources: string;
+    assessment: string;
+  }[];
   createdAt?: string;
   createdByUserId?: string;
   createdByUserEmail?: string;
