@@ -18,12 +18,18 @@ import {
   CalendarDays,
   CalendarRange,
   Timer,
-  Trash2
+  Trash2,
+  Eye,
+  X
 } from 'lucide-react';
 import { Resource, GradeLevel, SubjectCategory, LessonPlanItem, LessonPlanScope, UserProfile } from '../../types';
 import {
   downloadWorksheetDocument,
   downloadLessonPlanDocument,
+  printWorksheetDocument,
+  printLessonPlanDocument,
+  generateWorksheetHTML,
+  generateLessonPlanHTML,
   getResourceWorksheet,
   getResourceLessonPlan
 } from '../../utils/downloadHelper';
@@ -54,6 +60,14 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
   const [selectedScope, setSelectedScope] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
+
+  // Print Preview Modal State
+  const [previewItem, setPreviewItem] = useState<{
+    type: 'lesson_plan' | 'worksheet';
+    title: string;
+    html: string;
+    rawItem: Resource | LessonPlanItem;
+  } | null>(null);
 
   const filteredResources = useMemo(() => {
     return resources.filter((r) => {
@@ -381,13 +395,27 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-5 pt-3 border-t border-slate-100 flex items-center gap-2">
+                  <div className="mt-5 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => setPreviewItem({
+                        type: 'lesson_plan',
+                        title: plan.title,
+                        html: generateLessonPlanHTML(plan),
+                        rawItem: plan
+                      })}
+                      className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-300 font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      title="Open Print Preview"
+                    >
+                      <Printer size={14} className="text-amber-700" />
+                      <span>Print Preview</span>
+                    </button>
+
                     <button
                       onClick={() => handleDownloadLP(plan)}
                       className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20"
                     >
                       <Download size={14} />
-                      <span>Download & Print Plan</span>
+                      <span>Download HTML</span>
                     </button>
                     {onDeleteLessonPlan && (currentUser?.role === 'admin' || currentUser?.role === 'steam_manager' || plan.teacherId === currentUser?.id) && (
                       <button
@@ -471,38 +499,68 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
                 <div className="mt-5 pt-3 border-t border-slate-100 space-y-2">
                   {/* Download Worksheet Button */}
                   {(activeType === 'all' || activeType === 'worksheets') && (
-                    <button
-                      id={`download-ws-${res.id}`}
-                      onClick={() => handleDownloadWS(res, true)}
-                      className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-blue-200/60 hover:border-blue-600 shadow-2xs group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileSpreadsheet size={14} className="group-hover:text-white text-blue-600" />
-                        <span>Download Worksheet</span>
-                      </div>
-                      <Download size={14} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setPreviewItem({
+                          type: 'worksheet',
+                          title: ws.title,
+                          html: generateWorksheetHTML(res, true),
+                          rawItem: res
+                        })}
+                        className="py-2 px-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 border border-blue-200 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                        title="Print Preview Worksheet"
+                      >
+                        <Printer size={13} />
+                        <span>Preview</span>
+                      </button>
+                      <button
+                        id={`download-ws-${res.id}`}
+                        onClick={() => handleDownloadWS(res, true)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-blue-200/60 hover:border-blue-600 shadow-2xs group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileSpreadsheet size={14} className="group-hover:text-white text-blue-600" />
+                          <span>Worksheet HTML</span>
+                        </div>
+                        <Download size={14} />
+                      </button>
+                    </div>
                   )}
 
                   {/* Download Lesson Plan Button */}
                   {(activeType === 'all' || activeType === 'lesson_plans') && (
-                    <button
-                      id={`download-lp-${res.id}`}
-                      onClick={() => handleDownloadLP(res)}
-                      className="w-full py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-indigo-200/60 hover:border-indigo-600 shadow-2xs group"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Layers size={14} className="group-hover:text-white text-indigo-600" />
-                        <span>Download Lesson Plan</span>
-                      </div>
-                      <Download size={14} />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setPreviewItem({
+                          type: 'lesson_plan',
+                          title: lp.title,
+                          html: generateLessonPlanHTML(res),
+                          rawItem: res
+                        })}
+                        className="py-2 px-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 border border-indigo-200 font-bold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                        title="Print Preview Lesson Plan"
+                      >
+                        <Printer size={13} />
+                        <span>Preview</span>
+                      </button>
+                      <button
+                        id={`download-lp-${res.id}`}
+                        onClick={() => handleDownloadLP(res)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-bold text-xs transition-all flex items-center justify-between border border-indigo-200/60 hover:border-indigo-600 shadow-2xs group cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Layers size={14} className="group-hover:text-white text-indigo-600" />
+                          <span>Lesson Plan HTML</span>
+                        </div>
+                        <Download size={14} />
+                      </button>
+                    </div>
                   )}
 
                   {/* Open Digital Reader */}
                   <button
                     onClick={() => onOpenResource(res)}
-                    className="w-full py-1.5 text-center text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1"
+                    className="w-full py-1.5 text-center text-xs font-semibold text-slate-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <BookOpen size={13} />
                     <span>Open Flipbook / PDF</span>
@@ -511,6 +569,105 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Print Preview Modal Overlay */}
+      {previewItem && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setPreviewItem(null)}
+        >
+          <div 
+            className="bg-white rounded-3xl shadow-2xl border border-slate-300 w-full max-w-5xl my-auto flex flex-col h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-slate-900 text-white px-5 py-4 shrink-0 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                  <Printer size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/30">
+                      {previewItem.type === 'lesson_plan' ? 'Lesson Plan Print Preview' : 'Worksheet Print Preview'}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white truncate max-w-md sm:max-w-xl">
+                    {previewItem.title}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (previewItem.type === 'lesson_plan') {
+                      printLessonPlanDocument(previewItem.rawItem);
+                    } else {
+                      printWorksheetDocument(previewItem.rawItem as Resource, true);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/30 cursor-pointer"
+                  title="Trigger Print Dialog"
+                >
+                  <Printer size={15} />
+                  <span>Print Document</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (previewItem.type === 'lesson_plan') {
+                      handleDownloadLP(previewItem.rawItem);
+                    } else {
+                      handleDownloadWS(previewItem.rawItem as Resource, true);
+                    }
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+                >
+                  <Download size={14} />
+                  <span className="hidden sm:inline">Download HTML</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPreviewItem(null)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Iframe Body */}
+            <div className="flex-1 bg-slate-200/90 p-3 sm:p-6 overflow-y-auto flex justify-center">
+              <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-300 overflow-hidden flex flex-col min-h-full">
+                <iframe
+                  title="Document Print Preview"
+                  srcDoc={previewItem.html}
+                  className="w-full flex-1 border-0 min-h-[700px]"
+                />
+              </div>
+            </div>
+
+            {/* Preview Footer */}
+            <div className="bg-slate-900 text-slate-400 px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>DIS Standard Format • A4 Print Optimized</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewItem(null)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

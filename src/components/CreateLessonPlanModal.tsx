@@ -27,7 +27,8 @@ import {
   Wand2,
   Loader2,
   BrainCircuit,
-  Zap
+  Zap,
+  Printer
 } from 'lucide-react';
 import { 
   GradeLevel, 
@@ -39,7 +40,7 @@ import {
   WeeklyLessonEntry,
   UserProfile 
 } from '../types';
-import { downloadLessonPlanDocument } from '../utils/downloadHelper';
+import { downloadLessonPlanDocument, generateLessonPlanHTML, printLessonPlanDocument } from '../utils/downloadHelper';
 
 interface CreateLessonPlanModalProps {
   isOpen: boolean;
@@ -1150,6 +1151,11 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
     downloadLessonPlanDocument(plan);
   };
 
+  const handlePrint = () => {
+    const plan = buildPlanObject();
+    printLessonPlanDocument(plan);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/75 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
       <div 
@@ -1223,6 +1229,18 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   <span className="sm:hidden">AI Generate</span>
                 </>
               )}
+            </button>
+
+            <button
+              id="curriculum-generator-preview-header-btn"
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs border border-amber-400/30 cursor-pointer"
+              title="Open Print Preview of Current Lesson Plan"
+            >
+              <Printer size={14} className="text-amber-400" />
+              <span className="hidden sm:inline">Print Preview</span>
+              <span className="sm:hidden">Preview</span>
             </button>
 
             <button
@@ -2228,6 +2246,17 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
             </button>
 
             <button
+              id="curriculum-generator-footer-preview-btn"
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-300 hover:border-amber-400 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title="Open Print Preview of Current Lesson Plan"
+            >
+              <Printer size={14} className="text-amber-600" />
+              <span>Print Preview</span>
+            </button>
+
+            <button
               type="button"
               onClick={handleDownload}
               className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-300 shadow-2xs"
@@ -2247,6 +2276,99 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Print Preview Modal Overlay */}
+      {isPreviewOpen && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setIsPreviewOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl shadow-2xl border border-slate-300 w-full max-w-5xl my-auto flex flex-col h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Preview Header */}
+            <div className="bg-slate-900 text-white px-5 py-4 shrink-0 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                  <Printer size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-400/30">
+                      Print Preview • {scope.toUpperCase()}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      Grade {grade} • {subject}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-bold text-white truncate max-w-md sm:max-w-xl">
+                    {title || 'Curriculum Lesson Plan'}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  id="print-preview-modal-print-btn"
+                  type="button"
+                  onClick={handlePrint}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/30 cursor-pointer"
+                  title="Trigger Print Dialog (Save as PDF or Print)"
+                >
+                  <Printer size={15} />
+                  <span>Print Document</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+                  title="Download formatted HTML document"
+                >
+                  <Download size={14} />
+                  <span className="hidden sm:inline">Download HTML</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  title="Close Preview"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Preview Iframe Body */}
+            <div className="flex-1 bg-slate-200/90 p-3 sm:p-6 overflow-y-auto flex justify-center">
+              <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-300 overflow-hidden flex flex-col min-h-full">
+                <iframe
+                  title="Lesson Plan Print Preview"
+                  srcDoc={generateLessonPlanHTML(buildPlanObject())}
+                  className="w-full flex-1 border-0 min-h-[700px]"
+                />
+              </div>
+            </div>
+
+            {/* Preview Footer */}
+            <div className="bg-slate-900 text-slate-400 px-5 py-3 border-t border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>DIS Standard Layout • A4 Print Optimized • Ready for Physical Printing or PDF Export</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Back to Editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

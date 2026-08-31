@@ -194,14 +194,12 @@ export function triggerFileDownload(filename: string, content: string, mimeType:
 }
 
 /**
- * Generates and triggers download of a printable, professionally formatted student worksheet
+ * Generates the complete HTML string for a printable student worksheet
  */
-export function downloadWorksheetDocument(resource: Resource, includeAnswerKey: boolean = false) {
+export function generateWorksheetHTML(resource: Resource, includeAnswerKey: boolean = false): string {
   const ws = getResourceWorksheet(resource);
-  const safeTitle = resource.title.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Dewey_Worksheet_${safeTitle}_Grade${resource.grade}.html`;
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -435,14 +433,30 @@ export function downloadWorksheetDocument(resource: Resource, includeAnswerKey: 
   </div>
 </body>
 </html>`;
+}
 
+/**
+ * Generates and triggers download of a printable, professionally formatted student worksheet
+ */
+export function downloadWorksheetDocument(resource: Resource, includeAnswerKey: boolean = false) {
+  const safeTitle = resource.title.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `Dewey_Worksheet_${safeTitle}_Grade${resource.grade}.html`;
+  const html = generateWorksheetHTML(resource, includeAnswerKey);
   triggerFileDownload(filename, html, 'text/html');
 }
 
 /**
- * Generates and triggers download of an educator Lesson Plan document supporting Yearly, Quarter, Monthly, Weekly, and Daily scopes
+ * Opens browser print dialog for a worksheet document
  */
-export function downloadLessonPlanDocument(resourceOrPlan: Resource | LessonPlanItem) {
+export function printWorksheetDocument(resource: Resource, includeAnswerKey: boolean = false) {
+  const html = generateWorksheetHTML(resource, includeAnswerKey);
+  printHTMLDocument(html);
+}
+
+/**
+ * Generates the complete HTML string for a printable lesson plan supporting all scopes
+ */
+export function generateLessonPlanHTML(resourceOrPlan: Resource | LessonPlanItem): string {
   const lp: LessonPlanItem = (resourceOrPlan as Resource).lessonPlan 
     ? (resourceOrPlan as Resource).lessonPlan!
     : (resourceOrPlan as LessonPlanItem).title 
@@ -457,9 +471,6 @@ export function downloadLessonPlanDocument(resourceOrPlan: Resource | LessonPlan
        : 'Daily Lesson Plan')
     : 'Educator Lesson Plan';
 
-  const safeTitle = (lp.title || 'Lesson_Plan').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filename = `Dewey_${(lp.scope || 'LessonPlan').toUpperCase()}_${safeTitle}_Grade${lp.grade}.html`;
-
   const timeDisplay = lp.timeDetails ? (
     lp.scope === 'daily' 
       ? `${lp.timeDetails.dateRange ? `Date: ${lp.timeDetails.dateRange} • ` : ''}${lp.timeDetails.classPeriod ? `${lp.timeDetails.classPeriod} • ` : ''}${lp.timeDetails.startTime && lp.timeDetails.endTime ? `${lp.timeDetails.startTime} - ${lp.timeDetails.endTime}` : lp.duration}`
@@ -472,7 +483,7 @@ export function downloadLessonPlanDocument(resourceOrPlan: Resource | LessonPlan
       : `Academic Year ${lp.timeDetails.academicYear || '2025-2026'} • ${lp.duration}`
   ) : lp.duration;
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -779,6 +790,63 @@ export function downloadLessonPlanDocument(resourceOrPlan: Resource | LessonPlan
   </div>
 </body>
 </html>`;
+}
 
+/**
+ * Triggers an isolated print action for any HTML string
+ */
+export function printHTMLDocument(html: string) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (doc) {
+    doc.open();
+    doc.write(html);
+    doc.close();
+    iframe.contentWindow?.focus();
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error('Error triggering print:', err);
+      } finally {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 1500);
+      }
+    }, 300);
+  }
+}
+
+/**
+ * Generates and triggers download of an educator Lesson Plan document supporting Yearly, Quarter, Monthly, Weekly, and Daily scopes
+ */
+export function downloadLessonPlanDocument(resourceOrPlan: Resource | LessonPlanItem) {
+  const lp: LessonPlanItem = (resourceOrPlan as Resource).lessonPlan 
+    ? (resourceOrPlan as Resource).lessonPlan!
+    : (resourceOrPlan as LessonPlanItem).title 
+    ? (resourceOrPlan as LessonPlanItem)
+    : getResourceLessonPlan(resourceOrPlan as Resource);
+
+  const safeTitle = (lp.title || 'Lesson_Plan').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `Dewey_${(lp.scope || 'LessonPlan').toUpperCase()}_${safeTitle}_Grade${lp.grade}.html`;
+  const html = generateLessonPlanHTML(resourceOrPlan);
   triggerFileDownload(filename, html, 'text/html');
+}
+
+/**
+ * Opens browser print dialog for an educator Lesson Plan
+ */
+export function printLessonPlanDocument(resourceOrPlan: Resource | LessonPlanItem) {
+  const html = generateLessonPlanHTML(resourceOrPlan);
+  printHTMLDocument(html);
 }
