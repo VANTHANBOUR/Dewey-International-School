@@ -19,7 +19,7 @@ import {
   ShieldCheck,
   Key
 } from 'lucide-react';
-import { ActiveNavTab, UserProfile } from '../types';
+import { ActiveNavTab, UserProfile, isSuperAdminUser } from '../types';
 import { DisLogo } from './DisLogo';
 
 interface SidebarProps {
@@ -43,9 +43,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onOpenAuthModal,
 }) => {
-  const isAdmin = currentUser?.role === 'Administrator';
+  const isSuper = isSuperAdminUser(currentUser);
+  const isStandardAdmin = currentUser?.role === 'Administrator';
+  const isAdminOrSuper = isSuper || isStandardAdmin;
 
-  const navItems: { id: ActiveNavTab; label: string; icon: React.ElementType; badge?: number | string; highlight?: boolean }[] = [
+  const adminBadge = isSuper
+    ? 'Super'
+    : isStandardAdmin
+    ? currentUser?.adminScope === 'specific'
+      ? 'Scoped'
+      : 'Admin'
+    : 'Vault';
+
+  const navItems: { id: ActiveNavTab; label: string; icon: React.ElementType; badge?: number | string; highlight?: boolean; superHighlight?: boolean }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
     { id: 'grades', label: 'Grades', icon: GraduationCap },
     { id: 'library', label: 'My Library', icon: BookOpen },
@@ -55,7 +65,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'favorites', label: 'Favorites', icon: Heart, badge: favoriteCount },
     { id: 'shared', label: 'Shared with Me', icon: Users },
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-    { id: 'admin', label: 'Admin Console', icon: ShieldCheck, badge: isAdmin ? 'Admin' : 'Vault', highlight: isAdmin },
+    {
+      id: 'admin',
+      label: 'Admin Console',
+      icon: ShieldCheck,
+      badge: adminBadge,
+      highlight: isAdminOrSuper,
+      superHighlight: isSuper
+    },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'help', label: 'Help & Support', icon: HelpCircle },
   ];
@@ -139,6 +156,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
                       isActive
                         ? 'bg-white/20 text-white'
+                        : item.superHighlight
+                        ? 'bg-amber-900/90 text-amber-300 border border-amber-500/50 shadow-xs'
                         : item.highlight
                         ? 'bg-purple-900/80 text-purple-300 border border-purple-500/40'
                         : 'bg-slate-800 text-slate-300 group-hover:bg-blue-900/60 group-hover:text-blue-300'

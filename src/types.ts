@@ -121,6 +121,9 @@ export interface LessonPlanItem {
   notes?: string;
   createdAt?: string;
   createdByUserId?: string;
+  createdByUserEmail?: string;
+  createdByRole?: string;
+  createdByDepartment?: string;
 }
 
 export interface Resource {
@@ -153,6 +156,14 @@ export interface Resource {
   addedToLibraryAt?: string;
   uploadedByUserId?: string;
   uploadedByUserName?: string;
+  uploadedByEmail?: string;
+  uploadedByRole?: string;
+  uploadedByDepartment?: string;
+  uploadedAt?: string;
+  isCustomUpload?: boolean;
+  source?: 'preset' | 'uploaded' | 'shared';
+  category?: string;
+  verificationStatus?: 'verified' | 'pending' | 'institutional';
   isPersonalOnly?: boolean;
   sharedWithGrades?: GradeLevel[] | 'all';
   sharedWithEmails?: string[];
@@ -173,6 +184,7 @@ export interface Resource {
 
 export interface UserPersonalData {
   myLibraryResourceIds: string[];
+  myLessonPlanIds?: string[];
   bookmarkedResourceIds: string[];
   favoriteResourceIds: string[];
   recentlyRead: {
@@ -223,11 +235,16 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: 'STEAM Manager' | 'Educator' | 'Lead Curriculum Specialist' | 'Student' | 'Administrator';
+  role: 'Super Admin' | 'STEAM Manager' | 'Educator' | 'Lead Curriculum Specialist' | 'Student' | 'Administrator';
   avatarUrl?: string;
   initials: string;
   department?: string;
   gradeAssigned?: GradeLevel;
+  isSuperAdmin?: boolean;
+  adminScope?: 'all' | 'specific';
+  assignedDepartments?: string[];
+  assignedTasks?: string[];
+  canAssignRoles?: boolean;
 }
 
 export interface UserCredentialRecord {
@@ -235,7 +252,7 @@ export interface UserCredentialRecord {
   email: string;
   password: string;
   name: string;
-  role: 'STEAM Manager' | 'Educator' | 'Lead Curriculum Specialist' | 'Student' | 'Administrator';
+  role: 'Super Admin' | 'STEAM Manager' | 'Educator' | 'Lead Curriculum Specialist' | 'Student' | 'Administrator';
   department?: string;
   gradeAssigned?: GradeLevel;
   avatarUrl?: string;
@@ -245,6 +262,11 @@ export interface UserCredentialRecord {
   status?: 'active' | 'suspended';
   isPreset?: boolean;
   notes?: string;
+  isSuperAdmin?: boolean;
+  adminScope?: 'all' | 'specific';
+  assignedDepartments?: string[];
+  assignedTasks?: string[];
+  canAssignRoles?: boolean;
 }
 
 export type ActiveNavTab = 
@@ -260,5 +282,143 @@ export type ActiveNavTab =
   | 'admin'
   | 'settings'
   | 'help';
+
+export interface InstitutionalAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  category: 'academic' | 'steam' | 'maintenance' | 'event' | 'urgent';
+  targetAudience: 'all' | 'faculty' | 'students' | 'steam_dept';
+  authorName: string;
+  authorRole: string;
+  createdAt: string;
+  expiresAt?: string;
+  isPinned?: boolean;
+}
+
+export interface ActivityLogItem {
+  id: string;
+  action: 'upload' | 'delete' | 'share' | 'create_lesson_plan' | 'login' | 'profile_update' | 'bookmark';
+  title: string;
+  description: string;
+  userName: string;
+  userRole: string;
+  userEmail: string;
+  timestamp: string;
+  resourceId?: string;
+  details?: Record<string, any>;
+}
+
+/**
+ * Helper to check if email belongs to the institutional Super Admin (STEAM Manager vanthanbour@diu.edu.kh / vanthabour@diu.edu.kh)
+ */
+export function isSuperAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.toLowerCase().trim();
+  return (
+    clean === 'vanthanbour@diu.edu.kh' ||
+    clean === 'vanthabour@diu.edu.kh' ||
+    clean.includes('vanthanbour') ||
+    clean.includes('vanthabour')
+  );
+}
+
+/**
+ * Helper to check if user is Super Admin
+ * By default: STEAM Manager with vanthabour@diu.edu.kh / vanthanbour@diu.edu.kh has Super Admin status and full authority.
+ */
+export function isSuperAdminUser(user?: UserProfile | UserCredentialRecord | null): boolean {
+  if (!user) return false;
+  if (isSuperAdminEmail(user.email)) return true;
+  if (user.isSuperAdmin) return true;
+  const role = (user.role || '').toLowerCase().trim();
+  if (role === 'super admin' || role === 'super_admin') return true;
+  if (role === 'steam manager' || role === 'steam_manager') return true;
+  return false;
+}
+
+/**
+ * Check if user can access User Accounts, user registrations, and credentials vault.
+ * STRICT POLICY: Only Administrators and STEAM Managers (Super Admin) can access User Accounts.
+ */
+export function canUserAccessUserAccounts(user?: UserProfile | UserCredentialRecord | null): boolean {
+  if (!user || !user.role) return false;
+  if (isSuperAdminUser(user)) return true;
+  const role = user.role.toLowerCase().trim();
+  if (role === 'steam manager' || role === 'steam_manager' || role.includes('steam')) return true;
+  if (role === 'administrator' || role === 'admin' || role.includes('admin')) return true;
+  return false;
+}
+
+/**
+ * Check if user has authority to assign roles or change the role of users in the Admin Console.
+ * All Administrators and STEAM Managers / Super Admins can assign roles to all users.
+ */
+export function canUserAssignRoles(user?: UserProfile | UserCredentialRecord | null): boolean {
+  return canUserAccessUserAccounts(user);
+}
+
+/**
+ * Check if user can access the Admin Console
+ * Super Admin, STEAM Manager, or Administrators can access
+ */
+export function canUserAccessAdmin(user?: UserProfile | UserCredentialRecord | null): boolean {
+  if (!user || !user.role) return false;
+  if (isSuperAdminUser(user)) return true;
+  const role = user.role.toLowerCase().trim();
+  return role === 'administrator' || role === 'admin' || role.includes('admin') || role.includes('steam');
+}
+
+/**
+ * Check if an administrator is authorized for a specific department or subject
+ */
+export function isDepartmentAuthorizedForAdmin(
+  user: UserProfile | UserCredentialRecord | null | undefined,
+  departmentOrSubject?: string | null
+): boolean {
+  if (!user) return false;
+  // Super Admin has authority over all departments
+  if (isSuperAdminUser(user)) return true;
+  // If administrator has full department scope ('all' or undefined)
+  if (user.adminScope === 'all' || !user.adminScope) return true;
+  if (!user.assignedDepartments || user.assignedDepartments.length === 0) return true;
+  if (user.assignedDepartments.includes('All') || user.assignedDepartments.includes('all')) return true;
+  if (!departmentOrSubject) return true;
+
+  const target = departmentOrSubject.toLowerCase().trim();
+  return user.assignedDepartments.some(d => {
+    const dept = d.toLowerCase().trim();
+    return target.includes(dept) || dept.includes(target);
+  });
+}
+
+/**
+ * Check if an administrator is authorized for a specific administrative task
+ */
+export function isTaskAuthorizedForAdmin(
+  user: UserProfile | UserCredentialRecord | null | undefined,
+  taskId: string
+): boolean {
+  if (!user) return false;
+  if (isSuperAdminUser(user)) return true;
+  if (!user.assignedTasks || user.assignedTasks.length === 0) return true;
+  if (user.assignedTasks.includes('all')) return true;
+  return user.assignedTasks.includes(taskId);
+}
+
+/**
+ * Authorization helper: Check if a user has authority to delete books & curriculum resources
+ * Super Admin, STEAM Manager, and authorized Administrators.
+ */
+export function isAuthorizedToDeleteResource(user?: UserProfile | null): boolean {
+  if (!user || !user.role) return false;
+  if (isSuperAdminUser(user)) return true;
+  const role = user.role.toLowerCase().trim();
+  const isAdm = role === 'administrator' || role === 'admin' || role.includes('admin');
+  if (isAdm) {
+    return isTaskAuthorizedForAdmin(user, 'books_management');
+  }
+  return false;
+}
 
 

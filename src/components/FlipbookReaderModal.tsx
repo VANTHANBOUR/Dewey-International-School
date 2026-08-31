@@ -26,9 +26,12 @@ import {
   GraduationCap,
   FileText,
   ExternalLink,
-  Eye
+  Eye,
+  Trash2,
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
-import { Resource } from '../types';
+import { Resource, UserProfile, isAuthorizedToDeleteResource } from '../types';
 import { DisLogo } from './DisLogo';
 import {
   downloadWorksheetDocument,
@@ -41,12 +44,16 @@ interface FlipbookReaderModalProps {
   resource: Resource | null;
   onClose: () => void;
   onToggleBookmark: (id: string) => void;
+  currentUser?: UserProfile | null;
+  onDeleteResource?: (resource: Resource) => void;
 }
 
 export const FlipbookReaderModal: React.FC<FlipbookReaderModalProps> = ({
   resource,
   onClose,
   onToggleBookmark,
+  currentUser,
+  onDeleteResource,
 }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -62,6 +69,9 @@ export const FlipbookReaderModal: React.FC<FlipbookReaderModalProps> = ({
   const [includeAnswerKey, setIncludeAnswerKey] = useState(true);
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'flipbook' | 'document'>('flipbook');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const canDeleteAdmin = isAuthorizedToDeleteResource(currentUser);
 
   // Reset reader state whenever a new resource is opened
   useEffect(() => {
@@ -328,6 +338,18 @@ export const FlipbookReaderModal: React.FC<FlipbookReaderModalProps> = ({
                 <ZoomIn size={15} />
               </button>
             </div>
+
+            {/* Delete button for Admin and STEAM Manager */}
+            {canDeleteAdmin && (
+              <button
+                id="reader-delete-resource-btn"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="p-2 rounded-xl text-rose-400 hover:text-white hover:bg-rose-600/80 transition-colors"
+                title="Authorized: Delete Book from Portal (Admin / STEAM Manager)"
+              >
+                <Trash2 size={18} />
+              </button>
+            )}
 
             {/* Bookmark button */}
             <button
@@ -823,6 +845,65 @@ export const FlipbookReaderModal: React.FC<FlipbookReaderModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white text-slate-900 rounded-3xl shadow-2xl border border-rose-100 w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                  <ShieldCheck size={14} />
+                  <span>Authorized Role • {currentUser?.role || 'Administrator'}</span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 leading-tight mt-0.5">
+                  Delete Book & Resource?
+                </h3>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 text-xs text-slate-700 space-y-1">
+              <p className="font-extrabold text-slate-900 text-sm">
+                {resource.title}
+              </p>
+              <p className="text-slate-500 font-medium">
+                Grade {resource.grade} • {resource.subject} • {resource.totalPages} pages
+              </p>
+              <p className="text-rose-600 font-semibold pt-1">
+                Warning: This textbook will be deleted from the Dewey database, closing the reader and removing it from all user bookshelves.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                id="confirm-delete-reader-resource-btn"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  if (onDeleteResource && resource) {
+                    onDeleteResource(resource);
+                  }
+                  onClose();
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-600/20 transition-all flex items-center gap-1.5"
+              >
+                <Trash2 size={14} />
+                <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

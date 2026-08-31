@@ -7,6 +7,7 @@ const SHARED_STORAGE_KEY = 'dewey_shared_resources_list';
 // Default initial data for users
 export const getInitialUserData = (): UserPersonalData => ({
   myLibraryResourceIds: ['1', '2', '4'],
+  myLessonPlanIds: [],
   bookmarkedResourceIds: ['1', '3'],
   favoriteResourceIds: ['1', '4'],
   recentlyRead: [
@@ -36,6 +37,7 @@ export const loadUserPersonalData = (userId?: string | null): UserPersonalData =
       const parsed = JSON.parse(raw);
       return {
         myLibraryResourceIds: parsed.myLibraryResourceIds || [],
+        myLessonPlanIds: parsed.myLessonPlanIds || [],
         bookmarkedResourceIds: parsed.bookmarkedResourceIds || [],
         favoriteResourceIds: parsed.favoriteResourceIds || [],
         recentlyRead: parsed.recentlyRead || [],
@@ -86,6 +88,38 @@ export const saveUserPersonalData = (
   }
 };
 
+// Add book to personal library (idempotent)
+export const addBookToMyLibrary = (
+  userId: string | undefined | null,
+  resourceId: string
+): UserPersonalData => {
+  const current = loadUserPersonalData(userId);
+  const existing = current.myLibraryResourceIds || [];
+  if (existing.includes(resourceId)) return current;
+  const updated: UserPersonalData = {
+    ...current,
+    myLibraryResourceIds: [...existing, resourceId],
+  };
+  saveUserPersonalData(userId, updated);
+  return updated;
+};
+
+// Add lesson plan to personal library (idempotent)
+export const addLessonPlanToMyLibrary = (
+  userId: string | undefined | null,
+  planId: string
+): UserPersonalData => {
+  const current = loadUserPersonalData(userId);
+  const existing = current.myLessonPlanIds || [];
+  if (existing.includes(planId)) return current;
+  const updated: UserPersonalData = {
+    ...current,
+    myLessonPlanIds: [...existing, planId],
+  };
+  saveUserPersonalData(userId, updated);
+  return updated;
+};
+
 // Toggle book in personal library
 export const toggleBookInMyLibrary = (
   userId: string | undefined | null,
@@ -99,6 +133,26 @@ export const toggleBookInMyLibrary = (
     myLibraryResourceIds: exists
       ? current.myLibraryResourceIds.filter(id => id !== resourceId)
       : [...current.myLibraryResourceIds, resourceId],
+  };
+
+  saveUserPersonalData(userId, updated);
+  return updated;
+};
+
+// Toggle lesson plan in personal library
+export const toggleLessonPlanInMyLibrary = (
+  userId: string | undefined | null,
+  planId: string
+): UserPersonalData => {
+  const current = loadUserPersonalData(userId);
+  const existing = current.myLessonPlanIds || [];
+  const exists = existing.includes(planId);
+
+  const updated: UserPersonalData = {
+    ...current,
+    myLessonPlanIds: exists
+      ? existing.filter(id => id !== planId)
+      : [...existing, planId],
   };
 
   saveUserPersonalData(userId, updated);
@@ -232,5 +286,37 @@ export const loadSharedResources = (): SharedResourceItem[] => {
     console.warn('Error reading shared resources:', e);
   }
   return [];
+};
+
+// Purge a deleted resource from user's personal lists & storage
+export const removeResourceFromUserPersonalData = (
+  userId: string | undefined | null,
+  resourceId: string
+): UserPersonalData => {
+  const current = loadUserPersonalData(userId);
+  const updated: UserPersonalData = {
+    ...current,
+    myLibraryResourceIds: (current.myLibraryResourceIds || []).filter(id => id !== resourceId),
+    bookmarkedResourceIds: (current.bookmarkedResourceIds || []).filter(id => id !== resourceId),
+    favoriteResourceIds: (current.favoriteResourceIds || []).filter(id => id !== resourceId),
+    recentlyRead: (current.recentlyRead || []).filter(r => r.resourceId !== resourceId),
+    sharedWithMe: (current.sharedWithMe || []).filter(s => s.resourceId !== resourceId),
+  };
+
+  saveUserPersonalData(userId, updated);
+
+  // Also clean from global shared storage
+  try {
+    const raw = localStorage.getItem(SHARED_STORAGE_KEY);
+    if (raw) {
+      const list: SharedResourceItem[] = JSON.parse(raw);
+      const filtered = list.filter(item => item.resourceId !== resourceId);
+      localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(filtered));
+    }
+  } catch (e) {
+    console.warn('Global shared list cleanup note:', e);
+  }
+
+  return updated;
 };
 

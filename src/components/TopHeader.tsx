@@ -166,6 +166,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
       {/* Right Controls: Upload, Notifications & User Profile */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Real-time Domain Live Status Badge */}
+        <div 
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-bold shadow-2xs"
+          title="Direct Real-Time Domain Sync Active: All curriculum updates, lesson plans, and credentials sync live to Firestore."
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>Live Real-Time</span>
+        </div>
+
         {/* Upload Resource Quick Action */}
         <button
           id="top-upload-resource-btn"

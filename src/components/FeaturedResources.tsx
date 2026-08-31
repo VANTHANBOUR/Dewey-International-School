@@ -1,6 +1,25 @@
 import React, { useRef, useState } from 'react';
-import { BookOpen, FileText, Bookmark, ChevronRight, ChevronLeft, Eye, Download, FileSpreadsheet, Layers, CheckCircle2, Plus, Check, Share2, Sparkles } from 'lucide-react';
-import { Resource } from '../types';
+import { 
+  BookOpen, 
+  FileText, 
+  Bookmark, 
+  ChevronRight, 
+  ChevronLeft, 
+  Eye, 
+  Download, 
+  FileSpreadsheet, 
+  Layers, 
+  CheckCircle2, 
+  Plus, 
+  Check, 
+  Share2, 
+  Sparkles,
+  Trash2,
+  AlertTriangle,
+  X,
+  ShieldCheck
+} from 'lucide-react';
+import { Resource, UserProfile, isAuthorizedToDeleteResource } from '../types';
 import { BookCoverIllustration } from './BookCoverIllustration';
 import { downloadWorksheetDocument, downloadLessonPlanDocument } from '../utils/downloadHelper';
 
@@ -13,6 +32,8 @@ interface FeaturedResourcesProps {
   onOpenUploadModal?: () => void;
   onOpenCreateLessonPlanModal?: () => void;
   onViewAll?: () => void;
+  currentUser?: UserProfile | null;
+  onDeleteResource?: (resource: Resource) => void;
 }
 
 export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
@@ -24,9 +45,14 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
   onViewAll,
+  currentUser,
+  onDeleteResource,
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
+  const [deletingResource, setDeletingResource] = useState<Resource | null>(null);
+
+  const canDelete = isAuthorizedToDeleteResource(currentUser);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -47,6 +73,18 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
     downloadLessonPlanDocument(res);
     setDownloadToast(`Downloaded Lesson Plan for ${res.title}`);
     setTimeout(() => setDownloadToast(null), 2500);
+  };
+
+  const handleTriggerDelete = (e: React.MouseEvent, res: Resource) => {
+    e.stopPropagation();
+    setDeletingResource(res);
+  };
+
+  const handleConfirmDelete = () => {
+    if (deletingResource && onDeleteResource) {
+      onDeleteResource(deletingResource);
+      setDeletingResource(null);
+    }
   };
 
   return (
@@ -245,6 +283,19 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1">
+                        {/* Delete Book action for Admin and STEAM Manager */}
+                        {canDelete && (
+                          <button
+                            id={`featured-delete-btn-${resource.id}`}
+                            onClick={(e) => handleTriggerDelete(e, resource)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Authorized: Delete Book & Resource (Admin / STEAM Manager)"
+                            aria-label="Delete resource"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+
                         {onOpenShareModal && (
                           <button
                             id={`share-btn-${resource.id}`}
@@ -281,6 +332,59 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
           })}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal for Authorized Admins / STEAM Managers */}
+      {deletingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-rose-100 w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                  <ShieldCheck size={14} />
+                  <span>Authorized Action • {currentUser?.role || 'Administrator'}</span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 leading-tight mt-0.5">
+                  Delete Book & Resource?
+                </h3>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 text-xs text-slate-700 space-y-1">
+              <p className="font-extrabold text-slate-900 text-sm">
+                {deletingResource.title}
+              </p>
+              <p className="text-slate-500 font-medium">
+                Grade {deletingResource.grade} • {deletingResource.subject} • {deletingResource.format.toUpperCase()}
+              </p>
+              <p className="text-rose-600 font-semibold pt-1">
+                Warning: This will permanently remove this textbook/resource from the school curriculum library and sync the deletion across all devices via Firestore.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingResource(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                id="confirm-delete-resource-btn"
+                onClick={handleConfirmDelete}
+                className="px-4 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-600/20 transition-all flex items-center gap-1.5"
+              >
+                <Trash2 size={14} />
+                <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

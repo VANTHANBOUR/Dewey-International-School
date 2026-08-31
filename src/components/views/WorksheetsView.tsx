@@ -17,9 +17,10 @@ import {
   Calendar,
   CalendarDays,
   CalendarRange,
-  Timer
+  Timer,
+  Trash2
 } from 'lucide-react';
-import { Resource, GradeLevel, SubjectCategory, LessonPlanItem, LessonPlanScope } from '../../types';
+import { Resource, GradeLevel, SubjectCategory, LessonPlanItem, LessonPlanScope, UserProfile } from '../../types';
 import {
   downloadWorksheetDocument,
   downloadLessonPlanDocument,
@@ -34,6 +35,8 @@ interface WorksheetsViewProps {
   onOpenResource: (resource: Resource) => void;
   onOpenUploadModal: () => void;
   onOpenCreateLessonPlanModal?: () => void;
+  currentUser?: UserProfile | null;
+  onDeleteLessonPlan?: (planId: string) => void;
 }
 
 export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
@@ -42,6 +45,8 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
   onOpenResource,
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
+  currentUser,
+  onDeleteLessonPlan,
 }) => {
   const [activeType, setActiveType] = useState<'all' | 'worksheets' | 'lesson_plans' | 'custom_plans'>('all');
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
@@ -384,6 +389,19 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
                       <Download size={14} />
                       <span>Download & Print Plan</span>
                     </button>
+                    {onDeleteLessonPlan && (currentUser?.role === 'admin' || currentUser?.role === 'steam_manager' || plan.teacherId === currentUser?.id) && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to delete lesson plan "${plan.title}"? This will sync immediately across the domain.`)) {
+                            onDeleteLessonPlan(plan.id);
+                          }
+                        }}
+                        className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-slate-200"
+                        title="Delete Lesson Plan (Admin / STEAM Manager)"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

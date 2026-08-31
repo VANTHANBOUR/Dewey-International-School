@@ -17,27 +17,48 @@ service cloud.firestore {
       allow write: if isOwner(userId) || !isAuthenticated();
     }
 
-    // Curriculum Resources: Read by everyone, create/update with owner validation
+    // Curriculum Resources & Deleted Resources Registry
     match /resources/{resourceId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAuthenticated() || true;
+      allow read, write: if true;
+    }
+
+    match /deleted_resources/{resourceId} {
+      allow read, write: if true;
+    }
+
+    // Custom Multi-Scope Lesson Plans
+    match /lesson_plans/{planId} {
+      allow read, write: if true;
+    }
+
+    // Institutional Announcements & Broadcasts
+    match /announcements/{announcementId} {
+      allow read, write: if true;
+    }
+
+    // Real-Time System Audit & Activity Logs
+    match /activity_logs/{logId} {
+      allow read, write: if true;
+    }
+
+    // User personal data cloud synchronization (bookshelf, bookmarks, favorites, reading progress)
+    match /user_data/{userId} {
+      allow read, write: if true;
     }
 
     // User Personal Libraries & isolated bookshelf data
     match /user_libraries/{userId}/{document=**} {
-      allow read, write: if isOwner(userId) || !isAuthenticated();
+      allow read, write: if true;
     }
 
     // User personal bookmarks, favorites, reading progress
     match /user_activity/{userId}/{document=**} {
-      allow read, write: if isOwner(userId) || !isAuthenticated();
+      allow read, write: if true;
     }
 
     // Shared resources collection
     match /shared_resources/{shareId} {
-      allow read: if true;
-      allow write: if isAuthenticated() || true;
+      allow read, write: if true;
     }
 
     // User Credentials and Login Details Registry (accessible for authentication and administrator management)
@@ -47,8 +68,7 @@ service cloud.firestore {
 
     // System and portal notifications
     match /notifications/{notificationId} {
-      allow read: if true;
-      allow write: if isAuthenticated() || true;
+      allow read, write: if true;
     }
   }
 }

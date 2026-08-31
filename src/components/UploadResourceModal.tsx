@@ -42,7 +42,7 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
   const [format, setFormat] = useState<ResourceFormat>('flipbook');
   const [totalPages, setTotalPages] = useState(140);
   const [description, setDescription] = useState('');
-  const [publishTarget, setPublishTarget] = useState<'my_library' | 'school' | 'grade'>('my_library');
+  const [publishTarget, setPublishTarget] = useState<'portal_and_library' | 'grade_and_library' | 'my_library_only'>('portal_and_library');
   
   // Drag & drop file states
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -91,6 +91,8 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
     const fileSizeMb = uploadedFile ? (uploadedFile.size / (1024 * 1024)).toFixed(1) : (Math.random() * 12 + 6).toFixed(1);
     const fileUrl = uploadedFile ? URL.createObjectURL(uploadedFile) : undefined;
 
+    const isPersonalOnly = publishTarget === 'my_library_only';
+
     const newResource: Resource = {
       id: `res-custom-${Date.now()}`,
       title: title.trim(),
@@ -105,15 +107,23 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
       fileSize: `${fileSizeMb} MB`,
       author: currentUser?.name || 'Dewey Faculty Educator',
       uploadedByUserId: currentUser?.id,
-      uploadedByUserName: currentUser?.name,
+      uploadedByUserName: currentUser?.name || 'Dewey Faculty Educator',
+      uploadedByEmail: currentUser?.email || 'educator@diu.edu.kh',
+      uploadedByRole: currentUser?.role || 'Educator',
+      uploadedByDepartment: currentUser?.department || 'Academic Faculty',
+      uploadedAt: new Date().toISOString(),
+      isCustomUpload: true,
+      source: 'uploaded',
+      category: 'custom',
+      verificationStatus: 'verified',
       isMyLibrary: true,
-      isPersonalOnly: publishTarget === 'my_library',
-      sharedWithGrades: publishTarget === 'school' ? 'all' : (publishTarget === 'grade' ? [grade] : undefined),
+      isPersonalOnly,
+      sharedWithGrades: publishTarget === 'portal_and_library' ? 'all' : (publishTarget === 'grade_and_library' ? [grade] : undefined),
       publishedYear: 2025,
       rating: 5.0,
       viewsCount: 1,
       description: description.trim() || `Official ${subject} curriculum module and student learning materials tailored for Grade ${grade}.`,
-      isFeatured: publishTarget === 'school',
+      isFeatured: publishTarget === 'portal_and_library',
       isBookmarked: false,
       isFavorite: false,
       coverTheme: {
@@ -318,9 +328,42 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
               </p>
             </div>
 
+            {/* Dual-Presence Confirmation Box */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto text-left">
+              <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs font-black text-xs">
+                  1
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs text-blue-950 flex items-center gap-1">
+                    <Globe size={13} className="text-blue-600" />
+                    <span>In School Portal</span>
+                  </div>
+                  <p className="text-[11px] text-blue-800/80 mt-0.5 leading-snug">
+                    Published in Central Catalog for all teachers, coordinators & Grade {createdResource?.grade} students.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs font-black text-xs">
+                  1
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs text-emerald-950 flex items-center gap-1">
+                    <BookOpen size={13} className="text-emerald-600" />
+                    <span>In Your Own Library</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800/80 mt-0.5 leading-snug">
+                    Saved directly onto your personal bookshelf under My Library for immediate one-click access.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Quick summary box */}
             {createdResource && (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 max-w-md mx-auto text-left flex items-center justify-between text-xs text-slate-600">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 max-w-lg mx-auto text-left flex items-center justify-between text-xs text-slate-600">
                 <div>
                   <span className="font-bold text-slate-900">Grade {createdResource.grade} • {createdResource.subject}</span>
                   <p className="text-[11px] text-slate-500 mt-0.5">{createdResource.format.toUpperCase()} • {createdResource.totalPages} Pages • {createdResource.chapters.length} Chapters</p>
@@ -565,64 +608,73 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
 
             {/* Publishing & Sharing Scope */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Library & Sharing Scope
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Publishing & Library Target
+                </label>
+                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Dual-Presence: 1 in Portal + 1 in My Library
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <button
                   type="button"
-                  id="target-my-library-btn"
-                  onClick={() => setPublishTarget('my_library')}
+                  id="target-portal-btn"
+                  onClick={() => setPublishTarget('portal_and_library')}
                   className={`p-3 rounded-xl border text-left transition-all ${
-                    publishTarget === 'my_library'
-                      ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-900'
+                    publishTarget === 'portal_and_library'
+                      ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-900 shadow-xs'
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <div className="flex items-center gap-2 font-bold text-xs">
-                    <Lock size={14} className={publishTarget === 'my_library' ? 'text-blue-600' : 'text-slate-500'} />
-                    <span>My Personal Library</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 font-extrabold text-xs">
+                      <Globe size={14} className={publishTarget === 'portal_and_library' ? 'text-blue-600' : 'text-slate-500'} />
+                      <span>1 Portal + 1 Library</span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-sm bg-blue-600 text-white">Default</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Save to your private bookshelf only.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  id="target-school-btn"
-                  onClick={() => setPublishTarget('school')}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    publishTarget === 'school'
-                      ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-900'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 font-bold text-xs">
-                    <Globe size={14} className={publishTarget === 'school' ? 'text-blue-600' : 'text-slate-500'} />
-                    <span>School Master Library</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Publish to all Dewey students & faculty (Grades K-12).
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    Live in Central School Portal for all users & saved on your personal shelf.
                   </p>
                 </button>
 
                 <button
                   type="button"
                   id="target-grade-btn"
-                  onClick={() => setPublishTarget('grade')}
+                  onClick={() => setPublishTarget('grade_and_library')}
                   className={`p-3 rounded-xl border text-left transition-all ${
-                    publishTarget === 'grade'
-                      ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-900'
+                    publishTarget === 'grade_and_library'
+                      ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-900 shadow-xs'
                       : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  <div className="flex items-center gap-2 font-bold text-xs">
-                    <Users size={14} className={publishTarget === 'grade' ? 'text-blue-600' : 'text-slate-500'} />
-                    <span>Grade {grade} Class Only</span>
+                  <div className="flex items-center gap-1.5 font-extrabold text-xs mb-1">
+                    <Users size={14} className={publishTarget === 'grade_and_library' ? 'text-blue-600' : 'text-slate-500'} />
+                    <span>Grade {grade} + Library</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Share with teachers & students of Grade {grade}.
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    Shared with Grade {grade} teachers & saved to your personal bookshelf.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  id="target-my-library-btn"
+                  onClick={() => setPublishTarget('my_library_only')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    publishTarget === 'my_library_only'
+                      ? 'bg-blue-50 border-blue-500 ring-2 ring-blue-500/20 text-blue-900 shadow-xs'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-extrabold text-xs mb-1">
+                    <Lock size={14} className={publishTarget === 'my_library_only' ? 'text-blue-600' : 'text-slate-500'} />
+                    <span>My Library Only</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-snug">
+                    Private draft saved only to your personal library account.
                   </p>
                 </button>
               </div>

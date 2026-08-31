@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Bell, BookOpen, Lock, Globe, Moon, Check, Save, User, LogIn, UserPlus, LogOut, ShieldCheck, RefreshCw, Key } from 'lucide-react';
-import { UserProfile, ActiveNavTab } from '../../types';
+import { UserProfile, ActiveNavTab, canUserAccessUserAccounts } from '../../types';
 
 interface SettingsViewProps {
   currentUser?: UserProfile | null;
@@ -151,36 +151,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
 
-        {/* Admin Credential Vault Quick Card */}
-        <div className="p-4 bg-gradient-to-r from-purple-900 to-indigo-950 rounded-2xl border border-purple-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 text-purple-300 flex items-center justify-center shrink-0">
-              <ShieldCheck size={20} />
+        {/* Admin Credential Vault Quick Card - Restricted to Admin and STEAM Manager */}
+        {canUserAccessUserAccounts(currentUser) && (
+          <div className="p-4 bg-gradient-to-r from-purple-900 to-indigo-950 rounded-2xl border border-purple-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 text-purple-300 flex items-center justify-center shrink-0">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span>Administrator Password & Credential Vault</span>
+                  <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-400/30">
+                    Firebase Firestore
+                  </span>
+                </h4>
+                <p className="text-xs text-purple-200/80 mt-0.5">
+                  Access all faculty, student, and admin login details, revealed passwords, and user account management.
+                </p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>Administrator Password & Credential Vault</span>
-                <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-400/30">
-                  Firebase Firestore
-                </span>
-              </h4>
-              <p className="text-xs text-purple-200/80 mt-0.5">
-                Access all faculty, student, and admin login details, revealed passwords, and user account management.
-              </p>
-            </div>
-          </div>
 
-          {onNavigateToTab && (
-            <button
-              id="settings-goto-admin-console-btn"
-              onClick={() => onNavigateToTab('admin')}
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors shrink-0 flex items-center justify-center gap-1.5"
-            >
-              <Key size={14} />
-              <span>Open Admin Console</span>
-            </button>
-          )}
-        </div>
+            {onNavigateToTab && (
+              <button
+                id="settings-goto-admin-console-btn"
+                onClick={() => onNavigateToTab('admin')}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-md transition-colors shrink-0 flex items-center justify-center gap-1.5"
+              >
+                <Key size={14} />
+                <span>Open User Accounts</span>
+              </button>
+            )}
+          </div>
+        )}
 
         <hr className="border-slate-100" />
 

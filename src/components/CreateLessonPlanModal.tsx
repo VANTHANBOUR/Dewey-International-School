@@ -20,7 +20,14 @@ import {
   Eye,
   Edit3,
   Sliders,
-  AlertCircle
+  AlertCircle,
+  RotateCcw,
+  Eraser,
+  Bot,
+  Wand2,
+  Loader2,
+  BrainCircuit,
+  Zap
 } from 'lucide-react';
 import { 
   GradeLevel, 
@@ -411,29 +418,196 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [saveSuccessToast, setSaveSuccessToast] = useState(false);
+  const [clearedToast, setClearedToast] = useState(false);
+  const [isExplicitlyCleared, setIsExplicitlyCleared] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiToastMsg, setAiToastMsg] = useState<string | null>(null);
 
   // Initialize teacher name & default title based on current user & subject
   useEffect(() => {
+    if (isExplicitlyCleared) return;
     if (currentUser?.name) {
       setTeacherName(currentUser.name);
     } else {
       setTeacherName('Dewey Faculty Educator');
     }
-  }, [currentUser]);
+  }, [currentUser, isExplicitlyCleared]);
 
   // Update default titles when scope, subject or grade changes if not dirty
   useEffect(() => {
+    if (isExplicitlyCleared) return;
     if (!title || title.startsWith('Curriculum') || title.startsWith('Lesson') || title.startsWith('Quarter') || title.startsWith('Monthly') || title.startsWith('Yearly') || title.startsWith('Weekly')) {
       const scopeName = SCOPE_OPTIONS.find(s => s.id === scope)?.title || 'Lesson Plan';
       setTitle(`${scopeName}: Grade ${grade} ${subject} Instructional Framework`);
       setUnit(`Unit ${scope === 'yearly' ? '1–8' : scope === 'quarter' ? '1–2' : '3'}: Foundations & Advanced Applications in ${subject}`);
     }
-  }, [scope, subject, grade]);
+  }, [scope, subject, grade, isExplicitlyCleared]);
+
+  // Clear all fields in Dewey Curriculum Generator
+  const handleClearFields = () => {
+    setIsExplicitlyCleared(true);
+    setTitle('');
+    setUnit('');
+    setTeacherName('');
+    setStartTime('');
+    setEndTime('');
+    setClassPeriod('');
+    setDailyDate('');
+    setWeekNumber('');
+    setWeekDateRange('');
+    setWeekCommencing('');
+    setWeeklyHours('');
+    setWeeklyNotesAndEvaluations('');
+    setTargetMonth('');
+    setMonthlyHours('');
+    setAcademicYear('');
+    setQuarterWeeks('');
+    setYearlyTerms('');
+    setStandards([]);
+    setNewStandardInput('');
+    setObjectives([]);
+    setNewObjectiveInput('');
+    setEssentialQuestions([]);
+    setNewQuestionInput('');
+    setMaterials([]);
+    setNewMaterialInput('');
+    setTimelineSteps([]);
+    setWeeklyDays([
+      {
+        day: 'Monday',
+        lessons: [
+          { lessonName: 'Lesson 1', experiencesAndOutcomes: '', benchmarksForAssessment: '', resourcesRequired: '', evaluation: '' }
+        ]
+      },
+      {
+        day: 'Tuesday',
+        lessons: [
+          { lessonName: 'Lesson 1', experiencesAndOutcomes: '', benchmarksForAssessment: '', resourcesRequired: '', evaluation: '' }
+        ]
+      },
+      {
+        day: 'Wednesday',
+        lessons: [
+          { lessonName: 'Lesson 1', experiencesAndOutcomes: '', benchmarksForAssessment: '', resourcesRequired: '', evaluation: '' }
+        ]
+      },
+      {
+        day: 'Thursday',
+        lessons: [
+          { lessonName: 'Lesson 1', experiencesAndOutcomes: '', benchmarksForAssessment: '', resourcesRequired: '', evaluation: '' }
+        ]
+      },
+      {
+        day: 'Friday',
+        lessons: [
+          { lessonName: 'Lesson 1', experiencesAndOutcomes: '', benchmarksForAssessment: '', resourcesRequired: '', evaluation: '' }
+        ]
+      }
+    ]);
+    setFormativeAssessment('');
+    setSummativeAssessment('');
+    setSupportDiff('');
+    setExtensionDiff('');
+    setHomework('');
+    setNotes('');
+
+    setClearedToast(true);
+    setTimeout(() => {
+      setClearedToast(false);
+    }, 2500);
+  };
+
+  // AI-Powered Lesson Plan Generator using Subject, Grade, Title, and Unit context
+  const handleAiGenerateLessonPlan = async () => {
+    setIsAiGenerating(true);
+    setIsExplicitlyCleared(false);
+
+    try {
+      const response = await fetch('/api/gemini/generate-lesson-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject,
+          grade,
+          title: title.trim() || undefined,
+          unit: unit.trim() || undefined,
+          scope,
+          teacherName: teacherName.trim() || (currentUser?.name || 'Dewey Faculty Educator')
+        })
+      });
+
+      const result = await response.json();
+      if (result && result.success && result.data) {
+        const data = result.data;
+
+        if (data.title) setTitle(data.title);
+        if (data.unit) setUnit(data.unit);
+        if (data.teacherName) setTeacherName(data.teacherName);
+
+        if (Array.isArray(data.standards) && data.standards.length > 0) {
+          setStandards(data.standards.map((s: any) => typeof s === 'string' ? s : `${s.code || ''}: ${s.description || ''}`));
+        }
+        if (Array.isArray(data.objectives) && data.objectives.length > 0) {
+          setObjectives(data.objectives.map((o: any) => typeof o === 'string' ? o : o.text || String(o)));
+        }
+        if (Array.isArray(data.essentialQuestions) && data.essentialQuestions.length > 0) {
+          setEssentialQuestions(data.essentialQuestions.map((q: any) => typeof q === 'string' ? q : q.question || String(q)));
+        }
+        if (Array.isArray(data.materials) && data.materials.length > 0) {
+          setMaterials(data.materials.map((m: any) => typeof m === 'string' ? m : m.name || String(m)));
+        }
+
+        if (Array.isArray(data.timelineSteps) && data.timelineSteps.length > 0) {
+          setTimelineSteps(data.timelineSteps.map((st: any) => ({
+            phase: st.phase || 'Instructional Step',
+            timeSlot: st.timeSlot || 'Class Period',
+            durationMin: Number(st.durationMin) || 15,
+            teacherRole: st.teacherRole || 'Facilitate inquiry and guide student practice.',
+            studentRole: st.studentRole || 'Engage in active collaborative tasks.'
+          })));
+        }
+
+        if (Array.isArray(data.weeklyDays) && data.weeklyDays.length > 0) {
+          setWeeklyDays(data.weeklyDays);
+        }
+
+        if (data.formativeAssessment) setFormativeAssessment(data.formativeAssessment);
+        if (data.summativeAssessment) setSummativeAssessment(data.summativeAssessment);
+        if (data.supportDiff) setSupportDiff(data.supportDiff);
+        if (data.extensionDiff) setExtensionDiff(data.extensionDiff);
+        if (data.homework) setHomework(data.homework);
+        if (data.notes) setNotes(data.notes);
+        if (data.monthlyHours) setMonthlyHours(data.monthlyHours);
+        if (data.weeklyHours) setWeeklyHours(data.weeklyHours);
+        if (data.quarterWeeks) setQuarterWeeks(data.quarterWeeks);
+        if (data.yearlyTerms) setYearlyTerms(data.yearlyTerms);
+
+        setAiToastMsg(`AI Generated: Grade ${grade} ${subject} Lesson Plan!`);
+      } else {
+        // Fallback to rich template if endpoint returns unexpected format
+        handleAutoFillTemplate();
+        setAiToastMsg(`Generated DIS Curriculum blueprint for Grade ${grade} ${subject}`);
+      }
+    } catch (err) {
+      console.error('AI Lesson Plan Generation error:', err);
+      handleAutoFillTemplate();
+      setAiToastMsg(`Generated DIS Curriculum blueprint for Grade ${grade} ${subject}`);
+    } finally {
+      setIsAiGenerating(false);
+      setTimeout(() => {
+        setAiToastMsg(null);
+      }, 4000);
+    }
+  };
 
   if (!isOpen) return null;
 
   // Auto-fill rich, realistic template based on scope + subject + grade
   const handleAutoFillTemplate = () => {
+    setIsExplicitlyCleared(false);
+    if (currentUser?.name) {
+      setTeacherName(currentUser.name);
+    }
     const scopeObj = SCOPE_OPTIONS.find(s => s.id === scope);
     setTitle(`${scopeObj?.title}: Grade ${grade} ${subject} Academic Mastery`);
     setUnit(`Unit ${scope === 'yearly' ? '1–8 Comprehensive Curriculum' : scope === 'quarter' ? '2: Advanced Principles' : scope === 'weekly' ? '3: Weekly Master Framework' : '1: Fundamentals'} of ${subject}`);
@@ -939,7 +1113,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
       weeklyDays,
       weeklyNotesAndEvaluations,
       timeDetails: timeDetailsObj,
-      teacherName: teacherName.trim(),
+      teacherName: teacherName.trim() || currentUser?.name || 'Dewey Faculty Educator',
       curriculumStandards: standards,
       learningObjectives: objectives,
       essentialQuestions,
@@ -954,7 +1128,10 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
       homeworkAssignment: homework,
       notes: notes || weeklyNotesAndEvaluations,
       createdAt: new Date().toISOString(),
-      createdByUserId: currentUser?.id
+      createdByUserId: currentUser?.id,
+      createdByUserEmail: currentUser?.email,
+      createdByRole: currentUser?.role || 'Educator',
+      createdByDepartment: currentUser?.department || 'Academic Faculty'
     };
   };
 
@@ -1002,13 +1179,50 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              id="curriculum-generator-clear-fields-btn"
+              type="button"
+              onClick={handleClearFields}
+              className="px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 border border-slate-700 hover:border-slate-500 shadow-2xs cursor-pointer"
+              title="Clear all fields in Dewey Curriculum Generator"
+            >
+              <RotateCcw size={13} className="text-rose-400" />
+              <span className="hidden sm:inline">Clear Fields</span>
+              <span className="sm:hidden">Clear</span>
+            </button>
+
+            <button
+              id="curriculum-generator-autofill-btn"
+              type="button"
               onClick={handleAutoFillTemplate}
-              className="px-3.5 py-2 rounded-xl bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm border border-blue-400/30"
+              className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs border border-slate-700 cursor-pointer"
               title="One-click fill with DIS Standard Curriculum Template"
             >
-              <Sparkles size={14} className="text-amber-300 animate-pulse" />
-              <span className="hidden sm:inline">Auto-Fill DIS Template</span>
-              <span className="sm:hidden">Auto-Fill</span>
+              <FileText size={13} className="text-blue-400" />
+              <span className="hidden sm:inline">DIS Template</span>
+              <span className="sm:hidden">Template</span>
+            </button>
+
+            <button
+              id="curriculum-generator-ai-header-btn"
+              type="button"
+              disabled={isAiGenerating}
+              onClick={handleAiGenerateLessonPlan}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-purple-600/25 border border-purple-400/40 cursor-pointer disabled:opacity-50"
+              title="AI Generate Comprehensive Lesson Plan based on Subject, Grade, Topic & Unit Context"
+            >
+              {isAiGenerating ? (
+                <>
+                  <Loader2 size={14} className="animate-spin text-white" />
+                  <span className="hidden sm:inline">AI Generating...</span>
+                  <span className="sm:hidden">Generating...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} className="text-amber-300 animate-pulse" />
+                  <span className="hidden sm:inline">AI Generate Plan</span>
+                  <span className="sm:hidden">AI Generate</span>
+                </>
+              )}
             </button>
 
             <button
@@ -1093,7 +1307,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value as SubjectCategory)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 hover:border-orange-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none transition-all shadow-2xs"
                 >
                   {SUBJECTS_LIST.map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -1109,7 +1323,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                 <select
                   value={grade}
                   onChange={(e) => setGrade(e.target.value as GradeLevel)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 hover:border-orange-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none transition-all shadow-2xs"
                 >
                   {GRADES_LIST.map((g) => (
                     <option key={g} value={g}>Grade {g}</option>
@@ -1127,7 +1341,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   value={teacherName}
                   onChange={(e) => setTeacherName(e.target.value)}
                   placeholder="e.g. Dr. Sabrina Bour"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 hover:border-orange-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none transition-all shadow-2xs"
                 />
               </div>
 
@@ -1141,7 +1355,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   value={academicYear}
                   onChange={(e) => setAcademicYear(e.target.value)}
                   placeholder="2025-2026"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 hover:border-orange-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none transition-all shadow-2xs"
                 />
               </div>
             </div>
@@ -1157,7 +1371,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Cellular Respiration & ATP Synthesis"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/90 border border-orange-300 hover:border-orange-400 rounded-xl text-xs sm:text-sm font-bold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 focus:outline-none transition-all shadow-2xs"
                 />
               </div>
               <div>
@@ -1169,9 +1383,51 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   placeholder="e.g. Unit 3: Bioenergetics & Metabolic Systems"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/90 border border-orange-300 hover:border-orange-400 rounded-xl text-xs sm:text-sm font-medium text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500 focus:outline-none transition-all shadow-2xs"
                 />
               </div>
+            </div>
+
+            {/* AI Generator Contextual Trigger Bar */}
+            <div className="bg-gradient-to-r from-purple-50/90 via-indigo-50/60 to-blue-50/70 p-3.5 sm:p-4 rounded-2xl border border-purple-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs shadow-purple-500/30">
+                  <BrainCircuit size={18} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-purple-700 text-white px-2 py-0.5 rounded-md">
+                      AI Plan Generator
+                    </span>
+                    <span className="text-xs font-bold text-slate-800">
+                      Context-Aware Curriculum Synthesis
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-medium mt-0.5">
+                    Analyzes: <span className="font-bold text-purple-900">{subject}</span> • <span className="font-bold text-purple-900">Grade {grade}</span> • <span className="font-bold text-purple-900 truncate max-w-[180px] inline-block align-bottom">{title || 'Topic Focus'}</span> • <span className="font-bold text-purple-900 truncate max-w-[180px] inline-block align-bottom">{unit || 'Unit Context'}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                id="curriculum-generator-section2-ai-btn"
+                type="button"
+                disabled={isAiGenerating}
+                onClick={handleAiGenerateLessonPlan}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/20 border border-purple-400/30 cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0"
+              >
+                {isAiGenerating ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin text-white" />
+                    <span>Synthesizing Plan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={14} className="text-amber-300" />
+                    <span>AI Generate Lesson Plan</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -1188,7 +1444,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
             {/* Daily Inputs */}
             {scope === 'daily' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-rose-50/40 p-4 rounded-xl border border-rose-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Lesson Date
@@ -1197,7 +1453,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     type="date"
                     value={dailyDate}
                     onChange={(e) => setDailyDate(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
                 <div>
@@ -1209,7 +1465,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={classPeriod}
                     onChange={(e) => setClassPeriod(e.target.value)}
                     placeholder="Period 2 (Room 302)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
                 <div>
@@ -1222,7 +1478,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
                       placeholder="08:30 AM"
-                      className="w-1/2 px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 text-center"
+                      className="w-1/2 px-2 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 text-center focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                     />
                     <span className="text-slate-400 font-bold">-</span>
                     <input
@@ -1230,7 +1486,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
                       placeholder="09:30 AM"
-                      className="w-1/2 px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 text-center"
+                      className="w-1/2 px-2 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 text-center focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                     />
                   </div>
                 </div>
@@ -1244,7 +1500,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     onChange={(e) => setDurationMinutes(Number(e.target.value))}
                     min={15}
                     max={240}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
               </div>
@@ -1252,7 +1508,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
             {/* Weekly Inputs */}
             {scope === 'weekly' && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-violet-50/40 p-4 rounded-xl border border-violet-100">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Week Commencing *
@@ -1262,7 +1518,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={weekCommencing}
                     onChange={(e) => setWeekCommencing(e.target.value)}
                     placeholder="e.g. 25 August 2026"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
                 <div>
@@ -1274,7 +1530,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={weekNumber}
                     onChange={(e) => setWeekNumber(e.target.value)}
                     placeholder="Week 1 (Term 1)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
                 <div>
@@ -1286,7 +1542,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={weeklyHours}
                     onChange={(e) => setWeeklyHours(e.target.value)}
                     placeholder="5 Days • 20 Lessons Total"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
               </div>
@@ -1294,7 +1550,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
             {/* Monthly Inputs */}
             {scope === 'monthly' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Target Month & Year
@@ -1304,7 +1560,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={targetMonth}
                     onChange={(e) => setTargetMonth(e.target.value)}
                     placeholder="November 2025"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
                 <div>
@@ -1316,7 +1572,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={monthlyHours}
                     onChange={(e) => setMonthlyHours(e.target.value)}
                     placeholder="16 Sessions • 32 Hours Total"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
               </div>
@@ -1324,7 +1580,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
             {/* Quarter Inputs */}
             {scope === 'quarter' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-emerald-50/40 p-4 rounded-xl border border-emerald-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Quarter / Term Selection
@@ -1332,7 +1588,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   <select
                     value={targetQuarter}
                     onChange={(e) => setTargetQuarter(e.target.value as any)}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   >
                     <option value="Q1">Quarter 1 (Fall Term)</option>
                     <option value="Q2">Quarter 2 (Winter Term)</option>
@@ -1349,7 +1605,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={quarterWeeks}
                     onChange={(e) => setQuarterWeeks(e.target.value)}
                     placeholder="9 Weeks (72 Total Hours)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
               </div>
@@ -1357,7 +1613,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
 
             {/* Yearly Inputs */}
             {scope === 'yearly' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-amber-50/40 p-4 rounded-xl border border-amber-100">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-orange-50/40 p-4 rounded-xl border border-orange-100">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Academic Year Scope
@@ -1367,7 +1623,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={academicYear}
                     onChange={(e) => setAcademicYear(e.target.value)}
                     placeholder="2025-2026 Academic Year"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
                 <div>
@@ -1379,7 +1635,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={yearlyTerms}
                     onChange={(e) => setYearlyTerms(e.target.value)}
                     placeholder="4 Quarters / 2 Semesters (180 Teaching Days)"
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-1.5 bg-orange-50/90 border border-orange-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:outline-none shadow-2xs"
                   />
                 </div>
               </div>
@@ -1484,7 +1740,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                                   value={lesson.lessonName}
                                   onChange={(e) => handleUpdateWeeklyLesson(currentDayObj.day, lIdx, 'lessonName', e.target.value)}
                                   placeholder={`Lesson ${lIdx + 1} Title`}
-                                  className="w-full max-w-xs px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:bg-white focus:ring-1 focus:ring-violet-500"
+                                  className="w-full max-w-xs px-2.5 py-1 bg-orange-50/80 border border-orange-200 rounded-lg text-xs font-bold text-slate-900 focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 shadow-2xs"
                                 />
                               </div>
 
@@ -1510,7 +1766,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                                   value={lesson.experiencesAndOutcomes}
                                   onChange={(e) => handleUpdateWeeklyLesson(currentDayObj.day, lIdx, 'experiencesAndOutcomes', e.target.value)}
                                   placeholder="Curriculum outcome links, core competencies, and targeted inquiry skills..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-white focus:ring-1 focus:ring-violet-500 focus:outline-none resize-none"
+                                  className="w-full px-2.5 py-1.5 bg-orange-50/70 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                                 />
                               </div>
 
@@ -1523,7 +1779,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                                   value={lesson.benchmarksForAssessment}
                                   onChange={(e) => handleUpdateWeeklyLesson(currentDayObj.day, lIdx, 'benchmarksForAssessment', e.target.value)}
                                   placeholder="Observable criteria, formative checkpoints, and scoring expectations..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-white focus:ring-1 focus:ring-violet-500 focus:outline-none resize-none"
+                                  className="w-full px-2.5 py-1.5 bg-orange-50/70 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                                 />
                               </div>
 
@@ -1536,7 +1792,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                                   value={lesson.resourcesRequired}
                                   onChange={(e) => handleUpdateWeeklyLesson(currentDayObj.day, lIdx, 'resourcesRequired', e.target.value)}
                                   placeholder="Dewey flipbooks, worksheets, laboratory equipment, digital media..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-white focus:ring-1 focus:ring-violet-500 focus:outline-none resize-none"
+                                  className="w-full px-2.5 py-1.5 bg-orange-50/70 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                                 />
                               </div>
 
@@ -1549,7 +1805,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                                   value={lesson.evaluation}
                                   onChange={(e) => handleUpdateWeeklyLesson(currentDayObj.day, lIdx, 'evaluation', e.target.value)}
                                   placeholder="Reflective evaluation notes, student progress metrics, and follow-ups..."
-                                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-white focus:ring-1 focus:ring-violet-500 focus:outline-none resize-none"
+                                  className="w-full px-2.5 py-1.5 bg-orange-50/70 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                                 />
                               </div>
                             </div>
@@ -1561,7 +1817,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                 })()}
 
                 {/* Page 6: Weekly Notes and Evaluations */}
-                <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-200/80 space-y-2">
+                <div className="bg-orange-50/50 p-4 rounded-xl border border-orange-200/80 space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-extrabold text-amber-950 uppercase tracking-wider block">
                       📝 Weekly Notes and Evaluations (End of Week Synthesis)
@@ -1573,7 +1829,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                     value={weeklyNotesAndEvaluations}
                     onChange={(e) => setWeeklyNotesAndEvaluations(e.target.value)}
                     placeholder="Weekly summary reflections, cohort mastery levels, laboratory safety notes, and curriculum pacing adjustments for next week..."
-                    className="w-full px-3 py-2 bg-white border border-amber-200 rounded-lg text-xs text-slate-900 font-medium focus:ring-2 focus:ring-amber-400 focus:outline-none resize-none shadow-2xs"
+                    className="w-full px-3 py-2 bg-orange-50/90 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                   />
                 </div>
               </div>
@@ -1608,7 +1864,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   {timelineSteps.map((step, idx) => (
                     <div 
                       key={idx} 
-                      className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all space-y-2.5"
+                      className="p-3.5 rounded-xl bg-orange-50/30 border border-orange-200/70 hover:border-orange-300 transition-all space-y-2.5"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1">
@@ -1620,7 +1876,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                             value={step.phase}
                             onChange={(e) => handleUpdateTimelineStep(idx, 'phase', e.target.value)}
                             placeholder="Phase Name (e.g. Direct Instruction & Modeling)"
-                            className="flex-1 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900"
+                            className="flex-1 px-2.5 py-1 bg-orange-50/80 border border-orange-200 rounded-lg text-xs font-bold text-slate-900 focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 shadow-2xs"
                           />
                         </div>
 
@@ -1630,7 +1886,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                             value={step.timeSlot || ''}
                             onChange={(e) => handleUpdateTimelineStep(idx, 'timeSlot', e.target.value)}
                             placeholder="Time / Slot (e.g. 15 min)"
-                            className="w-28 px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-blue-700 text-center"
+                            className="w-28 px-2 py-1 bg-orange-50/80 border border-orange-200 rounded-lg text-xs font-semibold text-orange-800 text-center focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 shadow-2xs"
                           />
 
                           <button
@@ -1654,7 +1910,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                             value={step.teacherRole}
                             onChange={(e) => handleUpdateTimelineStep(idx, 'teacherRole', e.target.value)}
                             placeholder="Teacher actions, questions, modeling, and demonstration..."
-                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none"
+                            className="w-full px-2.5 py-1.5 bg-orange-50/70 border border-orange-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                           />
                         </div>
 
@@ -1667,7 +1923,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                             value={step.studentRole}
                             onChange={(e) => handleUpdateTimelineStep(idx, 'studentRole', e.target.value)}
                             placeholder="Student tasks, partner discussions, worksheet problems..."
-                            className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none"
+                            className="w-full px-2.5 py-1.5 bg-orange-50/70 border border-orange-200 rounded-lg text-xs text-slate-800 font-medium focus:bg-orange-50 focus:ring-1 focus:ring-orange-400 focus:border-orange-400 focus:outline-none resize-none shadow-2xs"
                           />
                         </div>
                       </div>
@@ -1687,8 +1943,8 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
               </span>
               <ul className="space-y-1.5 text-xs text-slate-800">
                 {objectives.map((obj, i) => (
-                  <li key={i} className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-                    <span className="text-blue-600 font-bold mt-0.5">•</span>
+                  <li key={i} className="flex items-start gap-2 bg-orange-50/70 p-2 rounded-lg border border-orange-200/80">
+                    <span className="text-orange-600 font-bold mt-0.5">•</span>
                     <span className="flex-1 font-medium">{obj}</span>
                     <button
                       type="button"
@@ -1707,12 +1963,12 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   onChange={(e) => setNewObjectiveInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddObjective())}
                   placeholder="Add learning objective..."
-                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
+                  className="flex-1 px-3 py-1.5 bg-orange-50/80 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
                 <button
                   type="button"
                   onClick={handleAddObjective}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-500"
+                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500 shadow-2xs"
                 >
                   Add
                 </button>
@@ -1726,8 +1982,8 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
               </span>
               <ul className="space-y-1.5 text-xs text-slate-800">
                 {essentialQuestions.map((q, i) => (
-                  <li key={i} className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-                    <span className="text-amber-500 font-bold mt-0.5">•</span>
+                  <li key={i} className="flex items-start gap-2 bg-orange-50/70 p-2 rounded-lg border border-orange-200/80">
+                    <span className="text-amber-600 font-bold mt-0.5">•</span>
                     <span className="flex-1 font-medium">{q}</span>
                     <button
                       type="button"
@@ -1746,12 +2002,12 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   onChange={(e) => setNewQuestionInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddQuestion())}
                   placeholder="Add essential question..."
-                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
+                  className="flex-1 px-3 py-1.5 bg-orange-50/80 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
                 <button
                   type="button"
                   onClick={handleAddQuestion}
-                  className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500"
+                  className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-500 shadow-2xs"
                 >
                   Add
                 </button>
@@ -1765,8 +2021,8 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
               </span>
               <ul className="space-y-1.5 text-xs text-slate-800">
                 {standards.map((std, i) => (
-                  <li key={i} className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-                    <span className="text-indigo-600 font-bold mt-0.5">•</span>
+                  <li key={i} className="flex items-start gap-2 bg-orange-50/70 p-2 rounded-lg border border-orange-200/80">
+                    <span className="text-orange-700 font-bold mt-0.5">•</span>
                     <span className="flex-1 font-medium">{std}</span>
                     <button
                       type="button"
@@ -1785,12 +2041,12 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   onChange={(e) => setNewStandardInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddStandard())}
                   placeholder="e.g. DIS-MATH.G9.02..."
-                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
+                  className="flex-1 px-3 py-1.5 bg-orange-50/80 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
                 <button
                   type="button"
                   onClick={handleAddStandard}
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-500"
+                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-bold hover:bg-orange-500 shadow-2xs"
                 >
                   Add
                 </button>
@@ -1804,8 +2060,8 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
               </span>
               <ul className="space-y-1.5 text-xs text-slate-800">
                 {materials.map((mat, i) => (
-                  <li key={i} className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200/60">
-                    <span className="text-emerald-600 font-bold mt-0.5">•</span>
+                  <li key={i} className="flex items-start gap-2 bg-orange-50/70 p-2 rounded-lg border border-orange-200/80">
+                    <span className="text-emerald-700 font-bold mt-0.5">•</span>
                     <span className="flex-1 font-medium">{mat}</span>
                     <button
                       type="button"
@@ -1824,12 +2080,12 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   onChange={(e) => setNewMaterialInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddMaterial())}
                   placeholder="e.g. Dewey Digital Flipbook Reader..."
-                  className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 font-medium"
+                  className="flex-1 px-3 py-1.5 bg-orange-50/80 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
                 <button
                   type="button"
                   onClick={handleAddMaterial}
-                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500"
+                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-500 shadow-2xs"
                 >
                   Add
                 </button>
@@ -1852,7 +2108,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   rows={2}
                   value={formativeAssessment}
                   onChange={(e) => setFormativeAssessment(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 rounded-xl text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
               </div>
 
@@ -1864,7 +2120,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   rows={2}
                   value={summativeAssessment}
                   onChange={(e) => setSummativeAssessment(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 rounded-xl text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
               </div>
 
@@ -1876,7 +2132,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   rows={2}
                   value={supportDiff}
                   onChange={(e) => setSupportDiff(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 rounded-xl text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
               </div>
 
@@ -1888,7 +2144,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   rows={2}
                   value={extensionDiff}
                   onChange={(e) => setExtensionDiff(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 rounded-xl text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
               </div>
 
@@ -1900,7 +2156,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   type="text"
                   value={homework}
                   onChange={(e) => setHomework(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 rounded-xl text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
               </div>
             </div>
@@ -1910,6 +2166,18 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
         {/* Modal Footer / Actions */}
         <div className="bg-white px-5 py-4 border-t border-slate-200 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
+            {aiToastMsg && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-800 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-200 animate-in fade-in">
+                <Sparkles size={15} className="text-purple-600 animate-pulse" />
+                <span>{aiToastMsg}</span>
+              </span>
+            )}
+            {clearedToast && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 animate-in fade-in">
+                <CheckCircle2 size={15} className="text-rose-600" />
+                <span>All Curriculum Fields Cleared!</span>
+              </span>
+            )}
             {saveSuccessToast && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 animate-in fade-in">
                 <CheckCircle2 size={15} />
@@ -1919,6 +2187,38 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <button
+              id="curriculum-generator-footer-clear-btn"
+              type="button"
+              onClick={handleClearFields}
+              className="px-3.5 py-2.5 rounded-xl border border-rose-200 hover:bg-rose-50 hover:border-rose-300 text-rose-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Reset all form fields to blank"
+            >
+              <RotateCcw size={13} className="text-rose-500" />
+              <span>Clear All</span>
+            </button>
+
+            <button
+              id="curriculum-generator-footer-ai-btn"
+              type="button"
+              disabled={isAiGenerating}
+              onClick={handleAiGenerateLessonPlan}
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-purple-600/20 border border-purple-400/30 cursor-pointer disabled:opacity-50"
+              title="Generate Lesson Plan with Gemini AI"
+            >
+              {isAiGenerating ? (
+                <>
+                  <Loader2 size={14} className="animate-spin text-white" />
+                  <span>AI Generating...</span>
+                </>
+              ) : (
+                <>
+                  <Wand2 size={14} className="text-amber-300" />
+                  <span>AI Generate</span>
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={onClose}

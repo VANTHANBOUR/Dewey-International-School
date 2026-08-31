@@ -40,7 +40,12 @@ export const PRESET_ACCOUNTS: UserProfile[] = [
     role: 'STEAM Manager',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop',
     initials: 'SB',
-    department: 'Dewey Faculty & STEAM Innovation'
+    department: 'Dewey Faculty & STEAM Innovation',
+    isSuperAdmin: true,
+    canAssignRoles: true,
+    adminScope: 'all',
+    assignedDepartments: ['All'],
+    assignedTasks: ['all', 'books_management', 'lesson_plans_audit', 'user_management', 'curriculum_review', 'analytics_oversight']
   }
 ];
 
@@ -65,12 +70,20 @@ export const getStoredCredentials = (): Record<string, StoredCredential> => {
   } catch (e) {
     console.error('Error reading credentials', e);
   }
-  // Seed default institutional account for Sabrina Bour
+  // Seed default institutional account for Sabrina Bour (supporting both spellings)
   return {
     'vanthanbour@diu.edu.kh': {
       email: 'vanthanbour@diu.edu.kh',
       password: 'Dewey2025!',
       profile: PRESET_ACCOUNTS[0]
+    },
+    'vanthabour@diu.edu.kh': {
+      email: 'vanthabour@diu.edu.kh',
+      password: 'Dewey2025!',
+      profile: {
+        ...PRESET_ACCOUNTS[0],
+        email: 'vanthabour@diu.edu.kh'
+      }
     }
   };
 };

@@ -21,9 +21,11 @@ import {
   X,
   ArrowRight,
   GraduationCap,
-  FolderHeart
+  FolderHeart,
+  AlertTriangle,
+  ShieldCheck
 } from 'lucide-react';
-import { Resource, ResourceFormat, SubjectCategory, UserProfile, ActiveNavTab } from '../../types';
+import { Resource, ResourceFormat, SubjectCategory, UserProfile, ActiveNavTab, isAuthorizedToDeleteResource } from '../../types';
 import { BookCoverIllustration } from '../BookCoverIllustration';
 import { downloadWorksheetDocument, downloadLessonPlanDocument } from '../../utils/downloadHelper';
 
@@ -36,6 +38,7 @@ interface LibraryViewProps {
   onOpenUploadModal: () => void;
   currentUser?: UserProfile | null;
   onNavigateToTab?: (tab: ActiveNavTab) => void;
+  onDeleteResource?: (resource: Resource) => void;
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -46,13 +49,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onOpenShareModal,
   onOpenUploadModal,
   currentUser,
-  onNavigateToTab
+  onNavigateToTab,
+  onDeleteResource,
 }) => {
   const [filterFormat, setFilterFormat] = useState<'all' | ResourceFormat | 'my_uploads'>('all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
+  const [deletingResource, setDeletingResource] = useState<Resource | null>(null);
   
+  const canDeleteAdmin = isAuthorizedToDeleteResource(currentUser);
+
   // Catalog Explorer Modal to discover & add books to My Library
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -384,19 +391,36 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
                 {/* Action Buttons */}
                 <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
-                  {/* Remove from Library Toggle */}
-                  {onToggleMyLibrary && (
-                    <button
-                      onClick={(e) => onToggleMyLibrary(res.id, e)}
-                      className="w-full py-1.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-xs bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 group/btn"
-                      title="Remove from My Library"
-                    >
-                      <Check size={13} className="stroke-[3] group-hover/btn:hidden" />
-                      <Trash2 size={13} className="hidden group-hover/btn:inline" />
-                      <span className="group-hover/btn:hidden">Saved in My Library</span>
-                      <span className="hidden group-hover/btn:inline">Remove from Library</span>
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {/* Remove from Library Toggle */}
+                    {onToggleMyLibrary && (
+                      <button
+                        onClick={(e) => onToggleMyLibrary(res.id, e)}
+                        className="flex-1 py-1.5 px-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-xs bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 group/btn"
+                        title="Remove from My Library"
+                      >
+                        <Check size={13} className="stroke-[3] group-hover/btn:hidden" />
+                        <Trash2 size={13} className="hidden group-hover/btn:inline" />
+                        <span className="group-hover/btn:hidden">In My Library</span>
+                        <span className="hidden group-hover/btn:inline">Remove from Library</span>
+                      </button>
+                    )}
+
+                    {/* Permanent Delete Button for Admin & STEAM Manager (or uploader) */}
+                    {(canDeleteAdmin || (currentUser && res.uploadedByUserId === currentUser.id)) && (
+                      <button
+                        id={`lib-delete-btn-${res.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingResource(res);
+                        }}
+                        className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 transition-colors"
+                        title="Authorized: Delete Book & Resource from Portal"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
@@ -549,7 +573,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Add/Remove Action */}
+                      {/* Add/Remove Action & Delete */}
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         {onToggleMyLibrary && (
                           <button
@@ -574,6 +598,20 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                             )}
                           </button>
                         )}
+
+                        {(canDeleteAdmin || (currentUser && res.uploadedByUserId === currentUser.id)) && (
+                          <button
+                            id={`catalog-delete-btn-${res.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingResource(res);
+                            }}
+                            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 transition-colors"
+                            title="Authorized: Delete Book from Portal (Admin / STEAM Manager)"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -596,6 +634,64 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors"
               >
                 Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal for Authorized Admins / STEAM Managers */}
+      {deletingResource && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-rose-100 w-full max-w-md overflow-hidden p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                  <ShieldCheck size={14} />
+                  <span>Authorized Action • {currentUser?.role || 'Administrator'}</span>
+                </div>
+                <h3 className="text-lg font-black text-slate-900 leading-tight mt-0.5">
+                  Delete Book & Resource?
+                </h3>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 text-xs text-slate-700 space-y-1">
+              <p className="font-extrabold text-slate-900 text-sm">
+                {deletingResource.title}
+              </p>
+              <p className="text-slate-500 font-medium">
+                Grade {deletingResource.grade} • {deletingResource.subject} • {deletingResource.format.toUpperCase()}
+              </p>
+              <p className="text-rose-600 font-semibold pt-1">
+                Warning: This will permanently delete this textbook from the Dewey curriculum repository and Firestore database.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeletingResource(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                id="confirm-delete-library-resource-btn"
+                onClick={() => {
+                  if (onDeleteResource && deletingResource) {
+                    onDeleteResource(deletingResource);
+                    setDeletingResource(null);
+                  }
+                }}
+                className="px-4 py-2.5 rounded-xl text-xs font-extrabold text-white bg-rose-600 hover:bg-rose-700 shadow-md shadow-rose-600/20 transition-all flex items-center gap-1.5"
+              >
+                <Trash2 size={14} />
+                <span>Confirm Delete</span>
               </button>
             </div>
           </div>

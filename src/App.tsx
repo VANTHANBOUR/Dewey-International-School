@@ -23,7 +23,7 @@ import { WorksheetsView } from './components/views/WorksheetsView';
 import { AdminConsoleView } from './components/views/AdminConsoleView';
 
 import { INITIAL_RESOURCES, INITIAL_NOTIFICATIONS } from './data/mockData';
-import { Resource, GradeLevel, ActiveNavTab, SubjectCategory, NotificationItem, UserProfile, UserPersonalData, LessonPlanItem } from './types';
+import { Resource, GradeLevel, ActiveNavTab, SubjectCategory, NotificationItem, UserProfile, UserPersonalData, LessonPlanItem, isAuthorizedToDeleteResource } from './types';
 import { 
   auth, 
   onAuthStateChanged 
@@ -31,7 +31,21 @@ import {
 import { 
   mapFirebaseUserToProfile, 
   saveResourceToFirestore, 
+  deleteResourceFromFirestore,
+  deleteMultipleResourcesFromFirestore,
+  deleteAllUploadedResourcesFromFirestore,
+  markResourceAsDeletedInFirestore,
   subscribeToCustomResources,
+  subscribeToDeletedResourceIds,
+  saveLessonPlanToFirestore,
+  deleteLessonPlanFromFirestore,
+  subscribeToLessonPlans,
+  saveSharedResourceToFirestore,
+  subscribeToSharedResources,
+  subscribeToAnnouncements,
+  logSystemActivityToFirestore,
+  saveUserPersonalDataToFirestore,
+  subscribeToUserPersonalData,
   logoutFirebase 
 } from './lib/firebaseServices';
 import {
@@ -55,6 +69,17 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(true);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+
+  // Deleted Resource IDs synced live from Firestore
+  const [deletedResourceIds, setDeletedResourceIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('dewey_deleted_resource_ids');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn('Could not read deleted resource ids cache', e);
+    }
+    return [];
+  });
 
   // User-isolated Personal Data (my bookshelf, bookmarks, favorites, shared items)
   const [userPersonalData, setUserPersonalData] = useState<UserPersonalData>(() =>
@@ -84,7 +109,7 @@ export default function App() {
   const [isCreateLessonPlanOpen, setIsCreateLessonPlanOpen] = useState(false);
   const [shareTargetResource, setShareTargetResource] = useState<Resource | null>(null);
 
-  // Custom Created Lesson Plans (Yearly, Quarter, Monthly, Weekly, Daily)
+  // Custom Created Lesson Plans (Yearly, Quarter, Monthly, Weekly, Daily) synced live with Firestore
   const [customLessonPlans, setCustomLessonPlans] = useState<LessonPlanItem[]>(() => {
     try {
       const saved = localStorage.getItem('dewey_custom_lesson_plans');
@@ -98,17 +123,31 @@ export default function App() {
     return [];
   });
 
-  // When currentUser changes, reload their isolated personal data
+  // When currentUser changes, reload their isolated personal data and set up live user personal data listener
   useEffect(() => {
     if (currentUser) {
       const personalData = loadUserPersonalData(currentUser.id);
       setUserPersonalData(personalData);
+
+      // Subscribe to cloud user personal data for real-time cross-device sync
+      const unsubscribeUserData = subscribeToUserPersonalData(currentUser.id, (cloudData) => {
+        if (cloudData) {
+          setUserPersonalData(prev => ({
+            ...prev,
+            ...cloudData
+          }));
+          saveUserPersonalData(currentUser.id, cloudData);
+        }
+      });
+      return () => {
+        unsubscribeUserData();
+      };
     } else {
       setUserPersonalData(loadUserPersonalData(null));
     }
   }, [currentUser]);
 
-  // Synchronize Firebase Auth state
+  // Synchronize Firebase Auth state & all Firestore Real-Time collections
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
@@ -122,7 +161,7 @@ export default function App() {
       }
     });
 
-    // Real-time Firestore resources listener
+    // 1. Real-time Firestore resources listener
     const unsubscribeResources = subscribeToCustomResources((cloudResources) => {
       if (cloudResources && cloudResources.length > 0) {
         setRawResources(prev => {
@@ -137,18 +176,69 @@ export default function App() {
       }
     });
 
+    // 2. Real-time Firestore deleted resources listener
+    const unsubscribeDeleted = subscribeToDeletedResourceIds((deletedIds) => {
+      if (deletedIds && deletedIds.length > 0) {
+        setDeletedResourceIds(deletedIds);
+        try {
+          localStorage.setItem('dewey_deleted_resource_ids', JSON.stringify(deletedIds));
+        } catch (e) {
+          console.warn('Storage note:', e);
+        }
+      }
+    });
+
+    // 3. Real-time Firestore lesson plans listener
+    const unsubscribeLessonPlans = subscribeToLessonPlans((plans) => {
+      if (plans && plans.length > 0) {
+        setCustomLessonPlans(prev => {
+          const merged = [...plans];
+          prev.forEach(localPlan => {
+            if (!merged.some(p => p.id === localPlan.id)) {
+              merged.push(localPlan);
+            }
+          });
+          try {
+            localStorage.setItem('dewey_custom_lesson_plans', JSON.stringify(merged));
+          } catch (e) {
+            console.warn('Lesson plan sync storage note:', e);
+          }
+          return merged;
+        });
+      }
+    });
+
+    // 4. Real-time Firestore shared resources listener
+    const unsubscribeShared = subscribeToSharedResources((sharedList) => {
+      if (sharedList && sharedList.length > 0) {
+        setUserPersonalData(prev => ({
+          ...prev,
+          sharedWithMe: sharedList
+        }));
+      }
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribeResources();
+      unsubscribeDeleted();
+      unsubscribeLessonPlans();
+      unsubscribeShared();
     };
   }, []);
 
   // Compute User-Isolated Resources
-  // 1. Filter out personal-only resources belonging to other users
-  // 2. Map user's personal bookmarks, library status, favorites, and read dates
+  // 1. Filter out deleted resources in real time
+  // 2. Filter out personal-only resources belonging to other users
+  // 3. Map user's personal bookmarks, library status, favorites, and read dates
   const resources = useMemo(() => {
     return rawResources
       .filter((res) => {
+        // Exclude any resource marked as deleted in Firestore
+        if (deletedResourceIds.includes(res.id)) {
+          return false;
+        }
+
         // If a resource is marked personal-only, only its author can see it
         if (res.isPersonalOnly && res.uploadedByUserId) {
           if (!currentUser || res.uploadedByUserId !== currentUser.id) {
@@ -174,7 +264,7 @@ export default function App() {
           lastReadTimeAgo: userRead ? 'Recently' : res.lastReadTimeAgo,
         };
       });
-  }, [rawResources, userPersonalData, currentUser]);
+  }, [rawResources, deletedResourceIds, userPersonalData, currentUser]);
 
   // Auth Handlers
   const handleOpenAuthModal = (mode: 'signin' | 'signup') => {
@@ -271,8 +361,26 @@ export default function App() {
     setNotifications(prev => [notif, ...prev]);
   };
 
-  // Save custom lesson plan handler (Yearly, Quarter, Monthly, Weekly, Daily)
-  const handleSaveCustomLessonPlan = (plan: LessonPlanItem) => {
+  // Save custom lesson plan handler (Yearly, Quarter, Monthly, Weekly, Daily) with real-time Firestore sync
+  const handleSaveCustomLessonPlan = async (plan: LessonPlanItem) => {
+    // 1. Save to Firestore for live real-time sync across all domain clients
+    await saveLessonPlanToFirestore(plan);
+
+    // 2. Log system audit activity
+    if (currentUser) {
+      await logSystemActivityToFirestore({
+        id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        action: 'create_lesson_plan',
+        title: 'Lesson Plan Created',
+        description: `Created "${plan.title}" (${(plan.scope || 'Plan').toUpperCase()}) for Grade ${plan.grade}.`,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        userEmail: currentUser.email,
+        timestamp: new Date().toISOString(),
+        resourceId: plan.id
+      });
+    }
+
     setCustomLessonPlans(prev => {
       const updated = [plan, ...prev.filter(p => p.id !== plan.id)];
       try {
@@ -286,10 +394,220 @@ export default function App() {
     const notif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: 'Lesson Plan Created',
-      message: `"${plan.title}" (${(plan.scope || 'Plan').toUpperCase()}) has been saved to your Curriculum Center.`,
+      message: `"${plan.title}" (${(plan.scope || 'Plan').toUpperCase()}) has been synced in real time across the domain.`,
       time: 'Just now',
       isRead: false,
       type: 'curriculum'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Delete Lesson Plan handler with real-time Firestore sync
+  const handleDeleteLessonPlan = async (planId: string) => {
+    await deleteLessonPlanFromFirestore(planId);
+    setCustomLessonPlans(prev => {
+      const updated = prev.filter(p => p.id !== planId);
+      try {
+        localStorage.setItem('dewey_custom_lesson_plans', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return updated;
+    });
+
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Lesson Plan Removed',
+      message: 'Lesson plan was deleted and removed in real time from the curriculum center.',
+      time: 'Just now',
+      isRead: false,
+      type: 'alert'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Delete Resource handler with authorized Administrator / STEAM Manager real-time domain sync
+  const handleDeleteResource = async (resource: Resource) => {
+    // 1. Delete document from Firestore
+    await deleteResourceFromFirestore(resource.id);
+    // 2. Register deletion in deleted_resources so all active sessions across the domain remove it instantly
+    await markResourceAsDeletedInFirestore(resource.id);
+
+    // 3. Log real-time audit activity
+    if (currentUser) {
+      await logSystemActivityToFirestore({
+        id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        action: 'delete',
+        title: 'Resource Deleted',
+        description: `Permanently removed "${resource.title}" (Grade ${resource.grade} • ${resource.subject}).`,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        userEmail: currentUser.email,
+        timestamp: new Date().toISOString(),
+        resourceId: resource.id
+      });
+    }
+
+    // 4. Update local deleted IDs cache and rawResources
+    setDeletedResourceIds(prev => {
+      const next = Array.from(new Set([...prev, resource.id]));
+      try {
+        localStorage.setItem('dewey_deleted_resource_ids', JSON.stringify(next));
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return next;
+    });
+
+    setRawResources(prev => {
+      const updated = prev.filter(r => r.id !== resource.id);
+      try {
+        const customItems = updated.filter(r => r.id.startsWith('res-custom-'));
+        localStorage.setItem('dewey_custom_uploaded_resources', JSON.stringify(customItems));
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return updated;
+    });
+
+    // Close reader if deleting active book
+    if (activeReaderResource?.id === resource.id) {
+      setActiveReaderResource(null);
+    }
+
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Resource Deleted in Real Time',
+      message: `"${resource.title}" was removed across the entire domain and Firestore repository.`,
+      time: 'Just now',
+      isRead: false,
+      type: 'alert'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Batch delete multiple resources (Authorized for Admin & STEAM Manager)
+  const handleDeleteMultipleResources = async (resourceIds: string[]) => {
+    if (!currentUser || !isAuthorizedToDeleteResource(currentUser) || resourceIds.length === 0) return;
+
+    // 1. Delete from Firestore & mark deleted
+    await deleteMultipleResourcesFromFirestore(resourceIds);
+
+    // 2. Audit log
+    await logSystemActivityToFirestore({
+      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      action: 'delete',
+      title: `Batch Deleted ${resourceIds.length} Resources`,
+      description: `Administrator ${currentUser.name} removed ${resourceIds.length} resources from the domain repository.`,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      userEmail: currentUser.email,
+      timestamp: new Date().toISOString(),
+      details: { resourceIds }
+    });
+
+    // 3. Update local caches
+    setDeletedResourceIds(prev => {
+      const next = Array.from(new Set([...prev, ...resourceIds]));
+      try {
+        localStorage.setItem('dewey_deleted_resource_ids', JSON.stringify(next));
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return next;
+    });
+
+    setRawResources(prev => {
+      const updated = prev.filter(r => !resourceIds.includes(r.id));
+      try {
+        const customItems = updated.filter(r => r.id.startsWith('res-custom-'));
+        localStorage.setItem('dewey_custom_uploaded_resources', JSON.stringify(customItems));
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return updated;
+    });
+
+    // Close reader if deleting active book
+    if (activeReaderResource && resourceIds.includes(activeReaderResource.id)) {
+      setActiveReaderResource(null);
+    }
+
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'Batch Resources Deleted',
+      message: `${resourceIds.length} resources were permanently deleted by Administrator.`,
+      time: 'Just now',
+      isRead: false,
+      type: 'alert'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Delete ALL uploaded resources across the domain (Authorized for Admin)
+  const handleDeleteAllUploadedResources = async () => {
+    if (!currentUser || !isAuthorizedToDeleteResource(currentUser)) return;
+
+    const uploadedList = resources.filter(r => 
+      r.id.startsWith('res-custom-') || 
+      r.isCustomUpload === true || 
+      !!r.uploadedByUserId || 
+      r.source === 'uploaded' ||
+      r.category === 'custom'
+    );
+    const uploadedIds = uploadedList.map(r => r.id);
+
+    if (uploadedIds.length === 0) return;
+
+    // 1. Delete all from Firestore
+    await deleteAllUploadedResourcesFromFirestore(uploadedIds);
+
+    // 2. Audit log
+    await logSystemActivityToFirestore({
+      id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      action: 'delete',
+      title: `Purged All (${uploadedIds.length}) Uploaded Resources`,
+      description: `Administrator ${currentUser.name} permanently deleted all uploaded curriculum materials from the institution's repository.`,
+      userName: currentUser.name,
+      userRole: currentUser.role,
+      userEmail: currentUser.email,
+      timestamp: new Date().toISOString(),
+      details: { count: uploadedIds.length }
+    });
+
+    // 3. Update local caches
+    setDeletedResourceIds(prev => {
+      const next = Array.from(new Set([...prev, ...uploadedIds]));
+      try {
+        localStorage.setItem('dewey_deleted_resource_ids', JSON.stringify(next));
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return next;
+    });
+
+    setRawResources(prev => {
+      const updated = prev.filter(r => !uploadedIds.includes(r.id));
+      try {
+        localStorage.removeItem('dewey_custom_uploaded_resources');
+      } catch (e) {
+        console.warn('Storage note:', e);
+      }
+      return updated;
+    });
+
+    // Close reader if deleting active book
+    if (activeReaderResource && uploadedIds.includes(activeReaderResource.id)) {
+      setActiveReaderResource(null);
+    }
+
+    const notif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title: 'All Uploaded Resources Purged',
+      message: `All ${uploadedIds.length} uploaded curriculum materials were deleted from Firebase Firestore.`,
+      time: 'Just now',
+      isRead: false,
+      type: 'alert'
     };
     setNotifications(prev => [notif, ...prev]);
   };
@@ -334,6 +652,10 @@ export default function App() {
     const updated = toggleBookInMyLibrary(currentUser?.id, id);
     setUserPersonalData(updated);
 
+    if (currentUser) {
+      saveUserPersonalDataToFirestore(currentUser.id, updated);
+    }
+
     const book = resources.find(r => r.id === id);
     const isNowInLibrary = updated.myLibraryResourceIds.includes(id);
 
@@ -353,12 +675,20 @@ export default function App() {
     if (e) e.stopPropagation();
     const updated = toggleBookmarkInUserData(currentUser?.id, id);
     setUserPersonalData(updated);
+
+    if (currentUser) {
+      saveUserPersonalDataToFirestore(currentUser.id, updated);
+    }
   };
 
   const handleToggleFavorite = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const updated = toggleFavoriteInUserData(currentUser?.id, id);
     setUserPersonalData(updated);
+
+    if (currentUser) {
+      saveUserPersonalDataToFirestore(currentUser.id, updated);
+    }
   };
 
   const handleOpenResource = (resource: Resource) => {
@@ -366,16 +696,38 @@ export default function App() {
     const updated = recordBookOpenedInUserData(currentUser?.id, resource.id);
     setUserPersonalData(updated);
 
+    if (currentUser) {
+      saveUserPersonalDataToFirestore(currentUser.id, updated);
+    }
+
     setActiveReaderResource(resource);
   };
 
   const handleAddResource = async (newRes: Resource, openImmediately?: boolean) => {
-    // Save to Firestore for persistent multi-device syncing
+    // Save to Firestore for persistent multi-device syncing in real time
     await saveResourceToFirestore(newRes);
 
     // Save to user's personal bookshelf automatically
     const updatedUser = toggleBookInMyLibrary(currentUser?.id, newRes.id);
     setUserPersonalData(updatedUser);
+    if (currentUser) {
+      saveUserPersonalDataToFirestore(currentUser.id, updatedUser);
+    }
+
+    // Log activity
+    if (currentUser) {
+      await logSystemActivityToFirestore({
+        id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        action: 'upload',
+        title: 'Resource Uploaded',
+        description: `Published new ${newRes.format.toUpperCase()} "${newRes.title}" for Grade ${newRes.grade}.`,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        userEmail: currentUser.email,
+        timestamp: new Date().toISOString(),
+        resourceId: newRes.id
+      });
+    }
 
     setRawResources(prev => {
       const updated = [newRes, ...prev.filter(r => r.id !== newRes.id)];
@@ -395,7 +747,7 @@ export default function App() {
     const newNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: 'Curriculum Resource Published',
-      message: `"${newRes.title}" is saved to your personal library and synced with Firestore Cloud.`,
+      message: `"${newRes.title}" is saved to your personal library and synced in real time across the domain.`,
       time: 'Just now',
       isRead: false,
       type: 'curriculum',
@@ -414,7 +766,7 @@ export default function App() {
     setShareTargetResource(resource);
   };
 
-  const handleConfirmShare = (
+  const handleConfirmShare = async (
     resourceId: string,
     targetType: 'school' | 'grade' | 'email',
     targetValue: string,
@@ -431,11 +783,28 @@ export default function App() {
       note
     );
 
+    // Sync to Firestore in real time
+    await saveSharedResourceToFirestore(sharedItem);
+
+    if (currentUser) {
+      await logSystemActivityToFirestore({
+        id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        action: 'share',
+        title: 'Resource Shared',
+        description: `Shared "${book?.title || 'Resource'}" with ${targetType === 'school' ? 'All School Faculty' : targetValue}.`,
+        userName: currentUser.name,
+        userRole: currentUser.role,
+        userEmail: currentUser.email,
+        timestamp: new Date().toISOString(),
+        resourceId
+      });
+    }
+
     // Add notification
     const shareNotif: NotificationItem = {
       id: `notif-${Date.now()}`,
-      title: 'Resource Shared Successfully',
-      message: `"${book?.title || 'Resource'}" has been shared with ${
+      title: 'Resource Shared Dynamically',
+      message: `"${book?.title || 'Resource'}" has been shared in real time across the domain with ${
         targetType === 'school'
           ? 'all school faculty'
           : targetType === 'grade'
@@ -532,6 +901,8 @@ export default function App() {
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
                 onViewAll={() => setActiveTab('library')}
+                currentUser={currentUser}
+                onDeleteResource={handleDeleteResource}
               />
 
               {/* Bottom Two Columns: Recently Viewed (Left) + Resource Categories (Right) */}
@@ -576,6 +947,7 @@ export default function App() {
               onOpenShareModal={handleOpenShareModal}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
               currentUser={currentUser}
+              onDeleteResource={handleDeleteResource}
             />
           )}
 
@@ -586,6 +958,8 @@ export default function App() {
               onOpenResource={handleOpenResource}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
               onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
+              currentUser={currentUser}
+              onDeleteLessonPlan={handleDeleteLessonPlan}
             />
           )}
 
@@ -642,6 +1016,12 @@ export default function App() {
               onSwitchUser={(u) => handleLoginSuccess(u)}
               onUserUpdated={handleUserUpdated}
               onOpenAuthModal={handleOpenAuthModal}
+              resources={resources}
+              onDeleteResource={handleDeleteResource}
+              onDeleteAllUploadedResources={handleDeleteAllUploadedResources}
+              onDeleteMultipleResources={handleDeleteMultipleResources}
+              onOpenResource={handleOpenResource}
+              onOpenUploadModal={() => setIsUploadModalOpen(true)}
             />
           )}
 
@@ -665,6 +1045,8 @@ export default function App() {
         resource={activeReaderResource}
         onClose={() => setActiveReaderResource(null)}
         onToggleBookmark={(id) => handleToggleBookmark(id)}
+        currentUser={currentUser}
+        onDeleteResource={handleDeleteResource}
       />
 
       {/* Upload/Add Resource Modal */}
