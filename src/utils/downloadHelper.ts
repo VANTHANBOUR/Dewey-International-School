@@ -4,17 +4,32 @@ import { Resource, WorksheetItem, LessonPlanItem } from '../types';
  * Returns a complete Worksheet object for a resource, generating rich pedagogical defaults if not present
  */
 export function getResourceWorksheet(resource: Resource): WorksheetItem {
+  if (!resource) {
+    return {
+      id: 'ws-default',
+      title: 'Curriculum Practice Worksheet',
+      subtitle: 'Unit Review & Mastery Check',
+      grade: '6',
+      subject: 'Science',
+      estimatedMinutes: 30,
+      totalPoints: 25,
+      instructions: 'Read each question carefully.',
+      questions: [],
+      answerKey: []
+    };
+  }
+
   if (resource.worksheet) {
     return resource.worksheet;
   }
 
-  const samplePage = resource.samplePages[0];
-  const title = `${resource.title} - Student Practice Worksheet`;
-  const subject = resource.subject;
-  const grade = resource.grade;
+  const samplePage = resource.samplePages?.[0];
+  const title = `${resource.title || 'Curriculum'} - Student Practice Worksheet`;
+  const subject = resource.subject || 'Science';
+  const grade = resource.grade || '6';
 
   return {
-    id: `ws-${resource.id}`,
+    id: `ws-${resource.id || 'res-custom'}`,
     title: title,
     subtitle: resource.subtitle || `Unit Review & Mastery Check (Grade ${grade})`,
     grade: grade,
@@ -97,16 +112,39 @@ export function getResourceWorksheet(resource: Resource): WorksheetItem {
  * Returns a complete structured Lesson Plan object for a resource, generating rich pedagogical defaults if not present
  */
 export function getResourceLessonPlan(resource: Resource): LessonPlanItem {
+  if (!resource) {
+    return {
+      id: 'lp-default',
+      title: 'Curriculum Lesson Plan',
+      unit: 'Unit 1: Foundations',
+      grade: '6',
+      subject: 'Science',
+      duration: '45 - 60 Minutes',
+      curriculumStandards: [],
+      learningObjectives: [],
+      essentialQuestions: [],
+      requiredMaterials: [],
+      vocabularyTerms: [],
+      timeline: [],
+      formativeAssessment: 'Active classroom check-in',
+      differentiation: {
+        support: 'Provide scaffolded vocabulary guides and visual models.',
+        extension: 'Encourage independent investigation and extension problem solving.'
+      },
+      homeworkAssignment: 'Review key terms and complete assigned section exercises.'
+    };
+  }
+
   if (resource.lessonPlan) {
     return resource.lessonPlan;
   }
 
-  const grade = resource.grade;
-  const subject = resource.subject;
-  const samplePage = resource.samplePages[0];
+  const grade = resource.grade || '6';
+  const subject = resource.subject || 'Science';
+  const samplePage = resource.samplePages?.[0];
 
   return {
-    id: `lp-${resource.id}`,
+    id: `lp-${resource.id || 'res-custom'}`,
     title: `Lesson Plan: ${resource.title}`,
     unit: resource.subtitle || `Unit 1: Foundations of ${subject} (Grade ${grade})`,
     grade: grade,

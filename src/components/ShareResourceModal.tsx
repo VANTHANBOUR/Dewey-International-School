@@ -105,7 +105,22 @@ export const ShareResourceModal: React.FC<ShareResourceModalProps> = ({
     }
   };
 
-  const gradesList: GradeLevel[] = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const gradesList: GradeLevel[] = [
+    'Foundation',
+    'Preparatory',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12'
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
@@ -246,7 +261,7 @@ export const ShareResourceModal: React.FC<ShareResourceModalProps> = ({
                 >
                   {gradesList.map((g) => (
                     <option key={g} value={g}>
-                      Grade {g} Students & Faculty
+                      {g === 'Foundation' ? 'Foundation Scholars & Faculty' : g === 'Preparatory' ? 'Preparatory Scholars & Faculty' : `Grade ${g} Students & Faculty`}
                     </option>
                   ))}
                 </select>
@@ -269,7 +284,7 @@ export const ShareResourceModal: React.FC<ShareResourceModalProps> = ({
 
             {shareTarget === 'school' && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800">
-                <span className="font-bold">Public Dewey Library:</span> This book will be featured across all Grade K-12 dashboards for every student and faculty member.
+                <span className="font-bold">Public Dewey Library:</span> This book will be featured across all Grade Found–12 dashboards for every student and faculty member.
               </div>
             )}
 

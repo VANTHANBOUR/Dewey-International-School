@@ -25,7 +25,7 @@ import {
   AlertTriangle,
   ShieldCheck
 } from 'lucide-react';
-import { Resource, ResourceFormat, SubjectCategory, UserProfile, ActiveNavTab, isAuthorizedToDeleteResource } from '../../types';
+import { Resource, GradeLevel, ResourceFormat, SubjectCategory, UserProfile, ActiveNavTab, isAuthorizedToDeleteResource } from '../../types';
 import { BookCoverIllustration } from '../BookCoverIllustration';
 import { downloadWorksheetDocument, downloadLessonPlanDocument } from '../../utils/downloadHelper';
 
@@ -495,7 +495,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 Add Books & Documents to My Library
               </h3>
               <p className="text-xs sm:text-sm text-blue-100/90 mt-1">
-                Browse K-12 textbooks, laboratory manuals, and worksheets. Click "Add to Library" to save them to your personal bookshelf.
+                Browse Found–12 textbooks, laboratory manuals, and worksheets. Click "Add to Library" to save them to your personal bookshelf.
               </p>
             </div>
 
@@ -523,7 +523,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                 >
                   All
                 </button>
-                {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((g) => (
+                {(['Foundation', 'Preparatory', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as GradeLevel[]).map((g) => (
                   <button
                     key={g}
                     onClick={() => setCatalogGrade(g)}
@@ -531,7 +531,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       catalogGrade === g ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    G{g}
+                    {g === 'Foundation' ? 'Found' : g === 'Preparatory' ? 'Prep' : `G${g}`}
                   </button>
                 ))}
               </div>

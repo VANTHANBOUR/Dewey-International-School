@@ -1,7 +1,8 @@
 import { Resource, CategoryInfo, NotificationItem, GradeLevel } from '../types';
 
 export const GRADE_COLORS: Record<GradeLevel, { bg: string; text: string; ring: string; border: string }> = {
-  'K': { bg: 'bg-[#9333ea]', text: 'text-white', ring: 'ring-[#9333ea]', border: 'border-[#9333ea]' },
+  'Foundation': { bg: 'bg-[#06b6d4]', text: 'text-white', ring: 'ring-[#06b6d4]', border: 'border-[#06b6d4]' },
+  'Preparatory': { bg: 'bg-[#f43f5e]', text: 'text-white', ring: 'ring-[#f43f5e]', border: 'border-[#f43f5e]' },
   '1': { bg: 'bg-[#3b66ff]', text: 'text-white', ring: 'ring-[#3b66ff]', border: 'border-[#3b66ff]' },
   '2': { bg: 'bg-[#0284c7]', text: 'text-white', ring: 'ring-[#0284c7]', border: 'border-[#0284c7]' },
   '3': { bg: 'bg-[#0d9488]', text: 'text-white', ring: 'ring-[#0d9488]', border: 'border-[#0d9488]' },
@@ -563,12 +564,97 @@ export const INITIAL_RESOURCES: Resource[] = [
       }
     ]
   },
-  // Additional Grade K to 12 materials for thorough coverage
+  // Additional Preparatory, Foundation, and Grade K to 12 materials for thorough coverage
+  {
+    id: 'res-prep-early-steam',
+    title: 'Preparatory Early STEAM Discovery',
+    subtitle: 'Module 1: Senses, Colors & Curiosity',
+    grade: 'Preparatory',
+    subject: 'Science',
+    format: 'flipbook',
+    totalPages: 48,
+    fileSize: '5.4 MB',
+    author: 'Dewey Early Childhood Academy',
+    publishedYear: 2026,
+    rating: 5.0,
+    viewsCount: 940,
+    description: 'Hands-on sensory exploration, five senses investigation, primary color mixing, and early scientific inquiry tailored for preparatory learners.',
+    coverTheme: {
+      bg: 'from-[#be123c] to-[#881337]',
+      text: 'text-rose-200',
+      accent: '#f43f5e',
+      badgeBg: 'bg-rose-600',
+      badgeText: 'text-white'
+    },
+    chapters: [
+      { title: 'Unit 1: Exploring with Our 5 Senses', page: 1 },
+      { title: 'Unit 2: Colors and Shapes in Nature', page: 14 },
+      { title: 'Unit 3: Floating, Sinking & Water Wonders', page: 28 }
+    ],
+    samplePages: [
+      {
+        pageNumber: 1,
+        title: 'Discovering Our Five Senses',
+        subtitle: 'Seeing, Hearing, Touching, Tasting & Smelling',
+        content: [
+          'We use our eyes to see bright rainbows, butterflies, and storybooks.',
+          'We use our ears to listen to musical birds and joyful classroom bells.',
+          'We use our hands to touch soft feathers and smooth river stones.'
+        ],
+        keyTerms: [
+          { term: 'Senses', definition: 'The ways our body discovers and understands the world around us.' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'res-found-numbers',
+    title: 'Foundation Mathematics & Patterns',
+    subtitle: 'Unit 1: Visual Counting & Quantities',
+    grade: 'Foundation',
+    subject: 'Mathematics',
+    format: 'flipbook',
+    totalPages: 56,
+    fileSize: '5.8 MB',
+    author: 'Dewey Primary Foundation Dept',
+    publishedYear: 2026,
+    rating: 4.9,
+    viewsCount: 820,
+    description: 'Interactive visual counting from 1 to 20, geometric sorting, sequencing, and foundational number bonds for early scholars.',
+    coverTheme: {
+      bg: 'from-[#0e7490] to-[#155e75]',
+      text: 'text-cyan-200',
+      accent: '#06b6d4',
+      badgeBg: 'bg-cyan-600',
+      badgeText: 'text-white'
+    },
+    chapters: [
+      { title: 'Unit 1: Numbers Around Us (1-10)', page: 1 },
+      { title: 'Unit 2: Comparing More, Less & Same', page: 18 },
+      { title: 'Unit 3: Repeating Patterns with Shapes', page: 34 }
+    ],
+    samplePages: [
+      {
+        pageNumber: 1,
+        title: 'Counting Our World (1 to 5)',
+        subtitle: 'Connecting Numbers with Objects',
+        content: [
+          '1 Sun shining in the blue sky.',
+          '2 Shoes on our feet ready for recess.',
+          '3 Apples on the teacher\'s table.',
+          '4 Wheels on the yellow school bus.'
+        ],
+        keyTerms: [
+          { term: 'Quantity', definition: 'How many of something there are when we count.' }
+        ]
+      }
+    ]
+  },
   {
     id: 'res-gk-foundations',
-    title: 'Kindergarten Phonics & Alphabet',
+    title: 'Foundation Phonics & Alphabet',
     subtitle: 'Module 1: Letter Sounds & Rhymes',
-    grade: 'K',
+    grade: 'Foundation',
     subject: 'English',
     format: 'flipbook',
     totalPages: 64,
@@ -592,7 +678,7 @@ export const INITIAL_RESOURCES: Resource[] = [
     samplePages: [
       {
         pageNumber: 1,
-        title: 'Welcome to Kindergarten Phonics!',
+        title: 'Welcome to Foundation Phonics!',
         subtitle: 'Sounding out the Alphabet',
         content: [
           'Letter A makes the sound /æ/ as in Apple and Alligator.',

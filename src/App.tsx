@@ -10,6 +10,7 @@ import { FlipbookReaderModal } from './components/FlipbookReaderModal';
 import { UploadResourceModal } from './components/UploadResourceModal';
 import { ShareResourceModal } from './components/ShareResourceModal';
 import { CreateLessonPlanModal } from './components/CreateLessonPlanModal';
+import { CreateWorksheetModal } from './components/CreateWorksheetModal';
 import { AuthModal, PRESET_ACCOUNTS } from './components/AuthModal';
 
 import { GradesView } from './components/views/GradesView';
@@ -107,6 +108,7 @@ export default function App() {
   const [activeReaderResource, setActiveReaderResource] = useState<Resource | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCreateLessonPlanOpen, setIsCreateLessonPlanOpen] = useState(false);
+  const [isCreateWorksheetOpen, setIsCreateWorksheetOpen] = useState(false);
   const [shareTargetResource, setShareTargetResource] = useState<Resource | null>(null);
 
   // Custom Created Lesson Plans (Yearly, Quarter, Monthly, Weekly, Daily) synced live with Firestore
@@ -125,7 +127,7 @@ export default function App() {
 
   // When currentUser changes, reload their isolated personal data and set up live user personal data listener
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && currentUser.id) {
       const personalData = loadUserPersonalData(currentUser.id);
       setUserPersonalData(personalData);
 
@@ -152,11 +154,13 @@ export default function App() {
     const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         const profile = await mapFirebaseUserToProfile(fbUser);
-        setCurrentUser(profile);
-        try {
-          localStorage.setItem('dewey_auth_user', JSON.stringify(profile));
-        } catch (e) {
-          console.warn('Storage sync note:', e);
+        if (profile) {
+          setCurrentUser(profile);
+          try {
+            localStorage.setItem('dewey_auth_user', JSON.stringify(profile));
+          } catch (e) {
+            console.warn('Storage sync note:', e);
+          }
         }
       }
     });
@@ -165,9 +169,9 @@ export default function App() {
     const unsubscribeResources = subscribeToCustomResources((cloudResources) => {
       if (cloudResources && cloudResources.length > 0) {
         setRawResources(prev => {
-          const combined = [...cloudResources];
+          const combined = [...cloudResources.filter(r => !!r && !!r.id)];
           INITIAL_RESOURCES.forEach(initRes => {
-            if (!combined.some(r => r.id === initRes.id)) {
+            if (initRes && initRes.id && !combined.some(r => r && r.id === initRes.id)) {
               combined.push(initRes);
             }
           });
@@ -192,9 +196,9 @@ export default function App() {
     const unsubscribeLessonPlans = subscribeToLessonPlans((plans) => {
       if (plans && plans.length > 0) {
         setCustomLessonPlans(prev => {
-          const merged = [...plans];
+          const merged = [...plans.filter(p => !!p && !!p.id)];
           prev.forEach(localPlan => {
-            if (!merged.some(p => p.id === localPlan.id)) {
+            if (localPlan && localPlan.id && !merged.some(p => p && p.id === localPlan.id)) {
               merged.push(localPlan);
             }
           });
@@ -232,10 +236,12 @@ export default function App() {
   // 2. Filter out personal-only resources belonging to other users
   // 3. Map user's personal bookmarks, library status, favorites, and read dates
   const resources = useMemo(() => {
-    return rawResources
-      .filter((res) => {
+    return (rawResources || [])
+      .filter((res): res is Resource => {
+        if (!res || !res.id) return false;
+
         // Exclude any resource marked as deleted in Firestore
-        if (deletedResourceIds.includes(res.id)) {
+        if (deletedResourceIds && deletedResourceIds.includes(res.id)) {
           return false;
         }
 
@@ -248,12 +254,17 @@ export default function App() {
         return true;
       })
       .map((res) => {
+        const myLibIds = userPersonalData?.myLibraryResourceIds || [];
+        const bmIds = userPersonalData?.bookmarkedResourceIds || [];
+        const favIds = userPersonalData?.favoriteResourceIds || [];
+        const recentReadList = userPersonalData?.recentlyRead || [];
+
         const isMyLib =
-          userPersonalData.myLibraryResourceIds.includes(res.id) ||
-          res.uploadedByUserId === currentUser?.id;
-        const isBm = userPersonalData.bookmarkedResourceIds.includes(res.id);
-        const isFav = userPersonalData.favoriteResourceIds.includes(res.id);
-        const userRead = userPersonalData.recentlyRead.find(r => r.resourceId === res.id);
+          myLibIds.includes(res.id) ||
+          (!!currentUser?.id && res.uploadedByUserId === currentUser.id);
+        const isBm = bmIds.includes(res.id);
+        const isFav = favIds.includes(res.id);
+        const userRead = recentReadList.find(r => r && r.resourceId === res.id);
 
         return {
           ...res,
@@ -272,13 +283,18 @@ export default function App() {
     setIsAuthModalOpen(true);
   };
 
-  const handleLoginSuccess = (user: UserProfile) => {
+  const handleLoginSuccess = (user: UserProfile, targetTab?: ActiveNavTab) => {
+    if (!user) return;
     setCurrentUser(user);
     const personalData = loadUserPersonalData(user.id);
     setUserPersonalData(personalData);
 
-    // Navigate directly to Home Page (Dashboard)
-    setActiveTab('dashboard');
+    // If a targetTab is specified or currently on admin/settings, keep it; otherwise navigate to dashboard
+    if (targetTab) {
+      setActiveTab(targetTab);
+    } else if (activeTab !== 'admin' && activeTab !== 'settings') {
+      setActiveTab('dashboard');
+    }
     setIsAuthModalOpen(false); // Close auth modal
     setActiveReaderResource(null); // Close any open book reader
     setIsUploadModalOpen(false); // Close upload modal
@@ -882,10 +898,11 @@ export default function App() {
                 onOpenAuthModal={handleOpenAuthModal}
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
+                onOpenCreateWorksheetModal={() => setIsCreateWorksheetOpen(true)}
                 onViewMyLibrary={() => setActiveTab('library')}
               />
 
-              {/* Grade Selector Row (K through 12) */}
+              {/* Grade Selector Row (Found, Prep through 12) */}
               <GradeSelector
                 selectedGrade={selectedGrade}
                 onSelectGrade={setSelectedGrade}
@@ -900,6 +917,7 @@ export default function App() {
                 onOpenShareModal={handleOpenShareModal}
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
+                onOpenCreateWorksheetModal={() => setIsCreateWorksheetOpen(true)}
                 onViewAll={() => setActiveTab('library')}
                 currentUser={currentUser}
                 onDeleteResource={handleDeleteResource}
@@ -958,6 +976,7 @@ export default function App() {
               onOpenResource={handleOpenResource}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
               onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
+              onOpenCreateWorksheetModal={() => setIsCreateWorksheetOpen(true)}
               currentUser={currentUser}
               onDeleteLessonPlan={handleDeleteLessonPlan}
             />
@@ -1013,11 +1032,13 @@ export default function App() {
           {activeTab === 'admin' && (
             <AdminConsoleView
               currentUser={currentUser}
-              onSwitchUser={(u) => handleLoginSuccess(u)}
+              onSwitchUser={(u) => handleLoginSuccess(u, 'admin')}
               onUserUpdated={handleUserUpdated}
               onOpenAuthModal={handleOpenAuthModal}
               resources={resources}
+              lessonPlans={customLessonPlans}
               onDeleteResource={handleDeleteResource}
+              onDeleteLessonPlan={handleDeleteLessonPlan}
               onDeleteAllUploadedResources={handleDeleteAllUploadedResources}
               onDeleteMultipleResources={handleDeleteMultipleResources}
               onOpenResource={handleOpenResource}
@@ -1065,6 +1086,15 @@ export default function App() {
         onSavePlan={handleSaveCustomLessonPlan}
         currentUser={currentUser}
         initialGrade={selectedGrade || '9'}
+      />
+
+      {/* Create Interactive Student Worksheet Modal */}
+      <CreateWorksheetModal
+        isOpen={isCreateWorksheetOpen}
+        onClose={() => setIsCreateWorksheetOpen(false)}
+        onAddResource={handleAddResource}
+        currentUser={currentUser}
+        initialGrade={selectedGrade || '6'}
       />
 
       {/* Share Resource Modal */}

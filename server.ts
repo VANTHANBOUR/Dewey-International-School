@@ -101,40 +101,251 @@ Return ONLY a valid JSON object matching this structure. Do not output markdown 
 
       const promptContents = `Generate a comprehensive Dewey International School ${cleanScope} lesson plan for Grade ${cleanGrade} ${cleanSubject} focusing on "${cleanTitle}" within "${cleanUnit}".${teacherInstruction ? `\nTeacher's Custom Instructions: ${teacherInstruction}` : ''}`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.7-flash',
-        contents: promptContents,
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: 'application/json',
-          temperature: 0.7,
-        }
-      });
+      let response: any = null;
+      const candidateModels = ['gemini-3.7-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
 
-      const responseText = response.text || '';
+      for (const modelName of candidateModels) {
+        try {
+          response = await ai.models.generateContent({
+            model: modelName,
+            contents: promptContents,
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: 'application/json',
+              temperature: 0.7,
+            }
+          });
+          if (response && response.text) {
+            break;
+          }
+        } catch (mErr: any) {
+          console.warn(`Lesson Plan model ${modelName} call failed or denied, trying next...`, mErr?.message || mErr);
+        }
+      }
+
+      const responseText = response?.text || '';
       let parsedData;
-      try {
-        const cleanedJson = responseText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
-        parsedData = JSON.parse(cleanedJson);
-      } catch (parseErr) {
-        console.error('Failed to parse Gemini JSON output:', parseErr, responseText);
+      if (responseText) {
+        try {
+          const cleanedJson = responseText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+          parsedData = JSON.parse(cleanedJson);
+        } catch (parseErr) {
+          console.error('Failed to parse Gemini JSON output:', parseErr, responseText);
+          parsedData = generateCurriculumFallback(cleanSubject, cleanGrade, cleanTitle, cleanUnit, cleanScope, teacherName, teacherInstruction);
+        }
+      } else {
         parsedData = generateCurriculumFallback(cleanSubject, cleanGrade, cleanTitle, cleanUnit, cleanScope, teacherName, teacherInstruction);
       }
 
       return res.json({
         success: true,
-        isAiGenerated: true,
+        isAiGenerated: !!responseText,
         data: parsedData
       });
 
     } catch (err: any) {
-      console.error('Error generating lesson plan via Gemini:', err);
+      console.warn('Handling fallback for lesson plan generation:', err?.message || err);
       const { subject, grade, title, unit, scope, teacherName, customInstructions, aiInstruction } = req.body;
       return res.json({
         success: true,
         isAiGenerated: false,
         fallbackNotice: 'AI model temporarily unavailable; generated standard Dewey Curriculum blueprint.',
         data: generateCurriculumFallback(subject || 'Science', grade || '9', title || 'Instructional Framework', unit || 'Core Unit', scope || 'daily', teacherName || 'Dewey Faculty Educator', customInstructions || aiInstruction)
+      });
+    }
+  });
+
+  // AI Worksheet Questions Generation Endpoint
+  app.post('/api/gemini/generate-worksheet-questions', async (req, res) => {
+    try {
+      const {
+        subject = 'Science',
+        grade = '6',
+        title = '',
+        prompt = '',
+        materialsText = '',
+        attachedFiles = [],
+        questionCount = 5,
+        questionType = 'mixed'
+      } = req.body;
+
+      const numCount = Math.max(1, Math.min(25, Number(questionCount) || 5));
+      const cleanSubject = subject || 'Science';
+      const cleanGrade = grade || '6';
+      const cleanPrompt = prompt.trim();
+      const cleanTitle = title.trim() || `${cleanSubject} Practice Worksheet`;
+      const cleanMaterials = typeof materialsText === 'string' ? materialsText.trim() : '';
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.json({
+          success: true,
+          isAiGenerated: false,
+          questions: generateWorksheetQuestionsFallback(
+            cleanSubject,
+            cleanGrade,
+            cleanTitle,
+            cleanPrompt || cleanMaterials.slice(0, 100),
+            numCount,
+            questionType
+          )
+        });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const systemPrompt = `You are a Senior Curriculum Specialist and AI Assessment Developer for Dewey International School.
+Your goal is to carefully analyze the provided source materials, uploaded reference documents, instructions, and subject parameters, then generate EXACTLY ${numCount} high-quality worksheet questions for Grade ${cleanGrade} ${cleanSubject}.
+
+Parameters:
+- Subject: ${cleanSubject}
+- Grade Level: Grade ${cleanGrade}
+- Worksheet Title/Topic: ${cleanTitle}
+- User AI Instruction: ${cleanPrompt ? `"${cleanPrompt}"` : 'Generate practice questions aligned with the reference material.'}
+- Target Question Count: ${numCount}
+- Target Question Type: ${questionType} (options: 'mixed', 'short_answer', 'multiple_choice', 'fill_in_blank', 'diagram_label')
+
+CRITICAL REQUIREMENT:
+If reference materials or attached files are provided, base the questions, options, hints, and correct answers directly on the facts, concepts, definitions, figures, diagrams, formulas, and text contained within those materials.
+
+Instructions:
+1. Generate EXACTLY ${numCount} questions numbered 1 through ${numCount}.
+2. If questionType is 'multiple_choice', every question MUST have an 'options' array with 4 distinct options (e.g. ['A. ...', 'B. ...', 'C. ...', 'D. ...']) and a clear 'correctAnswer'.
+3. If questionType is 'short_answer', provide a clear 'prompt', 'points', 'hint', and comprehensive sample 'correctAnswer'.
+4. If questionType is 'fill_in_blank', format the prompt with '_______' and provide the missing target word/phrase as 'correctAnswer'.
+5. If questionType is 'diagram_label', prompt students to identify/label parts, stages, or structures based on the material.
+6. If questionType is 'mixed', vary the types across short_answer, multiple_choice, fill_in_blank, and diagram_label.
+
+Return ONLY a JSON array of question objects matching this schema:
+[
+  {
+    "num": 1,
+    "prompt": "Question text...",
+    "type": "short_answer" | "multiple_choice" | "fill_in_blank" | "diagram_label",
+    "points": 5,
+    "hint": "Student hint...",
+    "correctAnswer": "Answer key detail...",
+    "options": ["A. Option 1", "B. Option 2", "C. Option 3", "D. Option 4"] // Required if type is multiple_choice
+  }
+]`;
+
+      const contentsParts: any[] = [];
+      let textPromptPayload = `Generate ${numCount} ${questionType} worksheet questions for Grade ${cleanGrade} ${cleanSubject}.\nWorksheet Topic: "${cleanTitle}".\nInstruction: "${cleanPrompt}".`;
+
+      if (cleanMaterials) {
+        textPromptPayload += `\n\n==================== SOURCE REFERENCE MATERIAL TEXT ====================\n${cleanMaterials}\n=======================================================================`;
+      }
+
+      if (Array.isArray(attachedFiles) && attachedFiles.length > 0) {
+        attachedFiles.forEach((file: any, index: number) => {
+          if (file.textContent) {
+            textPromptPayload += `\n\n==================== ATTACHED FILE ${index + 1}: ${file.name || 'Material Document'} ====================\n${file.textContent}\n=======================================================================`;
+          }
+          if (file.base64Data && file.mimeType) {
+            const rawBase64 = file.base64Data.includes('base64,')
+              ? file.base64Data.split('base64,')[1]
+              : file.base64Data;
+            
+            // Only attach supported image or PDF mimeTypes
+            if (rawBase64 && (file.mimeType.startsWith('image/') || file.mimeType === 'application/pdf')) {
+              contentsParts.push({
+                inlineData: {
+                  mimeType: file.mimeType,
+                  data: rawBase64
+                }
+              });
+            }
+          }
+        });
+      }
+
+      contentsParts.push({ text: textPromptPayload });
+
+      let aiResponse: any = null;
+      const candidateModels = ['gemini-3.7-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+
+      for (const modelName of candidateModels) {
+        try {
+          aiResponse = await ai.models.generateContent({
+            model: modelName,
+            contents: contentsParts,
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: 'application/json',
+              temperature: 0.7
+            }
+          });
+          if (aiResponse && aiResponse.text) {
+            break;
+          }
+        } catch (modelErr: any) {
+          console.warn(`Model ${modelName} call failed or denied, trying next model in chain...`, modelErr?.message || modelErr);
+        }
+      }
+
+      const responseText = aiResponse?.text || '';
+      let parsedQuestions = [];
+      if (responseText) {
+        try {
+          const cleanedJson = responseText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
+          parsedQuestions = JSON.parse(cleanedJson);
+          if (!Array.isArray(parsedQuestions)) {
+            if (parsedQuestions && Array.isArray((parsedQuestions as any).questions)) {
+              parsedQuestions = (parsedQuestions as any).questions;
+            } else {
+              parsedQuestions = [];
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse Gemini generated questions JSON:', e);
+        }
+      }
+
+      if (!parsedQuestions || parsedQuestions.length === 0) {
+        parsedQuestions = generateWorksheetQuestionsFallback(cleanSubject, cleanGrade, cleanTitle, cleanPrompt || cleanMaterials.slice(0, 100), numCount, questionType, cleanMaterials, attachedFiles);
+      } else {
+        // Ensure proper numbering
+        parsedQuestions = parsedQuestions.map((q: any, idx: number) => ({
+          num: idx + 1,
+          prompt: q.prompt || `Question ${idx + 1}`,
+          type: q.type || (questionType === 'mixed' ? 'short_answer' : questionType),
+          points: Number(q.points) || 5,
+          hint: q.hint || '',
+          correctAnswer: q.correctAnswer || '',
+          options: Array.isArray(q.options) ? q.options : undefined
+        }));
+      }
+
+      return res.json({
+        success: true,
+        isAiGenerated: !!responseText,
+        questions: parsedQuestions
+      });
+
+    } catch (err: any) {
+      console.warn('Handling fallback for AI worksheet questions error:', err?.message || err);
+      const { subject, grade, title, prompt, materialsText, attachedFiles, questionCount, questionType } = req.body;
+      const numCount = Math.max(1, Math.min(25, Number(questionCount) || 5));
+      return res.json({
+        success: true,
+        isAiGenerated: false,
+        questions: generateWorksheetQuestionsFallback(
+          subject || 'Science',
+          grade || '6',
+          title || '',
+          prompt || '',
+          numCount,
+          questionType || 'mixed',
+          materialsText || '',
+          attachedFiles || []
+        )
       });
     }
   });
@@ -338,6 +549,98 @@ function generateCurriculumFallback(
     homework: `Review assigned readings in Dewey Reader and complete the reflection prompt in the digital portal.`,
     notes: `Coordinate with lab technicians for materials prep; verify student device connectivity to flipbook resources before start.`
   };
+}
+
+function generateWorksheetQuestionsFallback(
+  subject: string,
+  grade: string,
+  title: string,
+  prompt: string,
+  count: number,
+  type: string,
+  materialsText?: string,
+  attachedFiles?: any[]
+) {
+  const result = [];
+  
+  // Extract text snippets from materials if provided
+  let combinedMaterialText = materialsText ? materialsText.trim() : '';
+  if (Array.isArray(attachedFiles)) {
+    attachedFiles.forEach(f => {
+      if (f.textContent) combinedMaterialText += '\n' + f.textContent;
+    });
+  }
+
+  const sentences = combinedMaterialText
+    .split(/(?<=[.?!])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 15);
+
+  const topic = prompt.trim() || title.trim() || `${subject} Mastery Concepts`;
+  const typesAvailable = ['short_answer', 'multiple_choice', 'fill_in_blank', 'diagram_label'];
+
+  for (let i = 1; i <= count; i++) {
+    const qType = type === 'mixed' ? typesAvailable[(i - 1) % typesAvailable.length] : type;
+    const materialSentence = sentences.length > 0 ? sentences[(i - 1) % sentences.length] : null;
+    
+    if (qType === 'multiple_choice') {
+      const promptText = materialSentence
+        ? `Based on your Grade ${grade} ${subject} reference material ("...${materialSentence.slice(0, 90)}..."), which statement is most accurate?`
+        : `Which of the following best demonstrates the core principle of ${topic} for Grade ${grade} ${subject}?`;
+
+      result.push({
+        num: i,
+        prompt: promptText,
+        type: 'multiple_choice',
+        points: 5,
+        hint: `Recall key definitions from Grade ${grade} ${subject} class notes.`,
+        correctAnswer: `B. ${materialSentence ? materialSentence.slice(0, 80) : `Empirical observation and structured evaluation of ${topic}`}`,
+        options: [
+          `A. Random variation without control variables`,
+          `B. ${materialSentence ? materialSentence.slice(0, 80) : `Empirical observation and structured evaluation of ${topic}`}`,
+          `C. Unverified theoretical assumptions`,
+          `D. External isolation of system components`
+        ]
+      });
+    } else if (qType === 'fill_in_blank') {
+      const fillPrompt = materialSentence
+        ? `Fill in the blank from reference material: "${materialSentence.slice(0, 60)} _______ ${materialSentence.slice(65, 110)}".`
+        : `Fill in the blank: The primary factor governing ${topic} in Grade ${grade} ${subject} is known as the _______ principle.`;
+
+      result.push({
+        num: i,
+        prompt: fillPrompt,
+        type: 'fill_in_blank',
+        points: 5,
+        hint: `Focus on foundational terminology in ${subject}.`,
+        correctAnswer: 'fundamental'
+      });
+    } else if (qType === 'diagram_label') {
+      result.push({
+        num: i,
+        prompt: `Diagram Analysis: Label and explain the 3 primary stages of ${topic} illustrated in your textbook reading material.`,
+        type: 'diagram_label',
+        points: 10,
+        hint: `Refer to figure diagrams in Chapter ${i}.`,
+        correctAnswer: `Stage 1: Initial Input, Stage 2: Core Processing, Stage 3: Systemic Output.`
+      });
+    } else {
+      const saPrompt = materialSentence
+        ? `Based on your reference reading ("${materialSentence.slice(0, 100)}"), explain how this concept applies to ${subject}.`
+        : `Explain in detail how ${topic} applies to practical problem solving in Grade ${grade} ${subject}.`;
+
+      result.push({
+        num: i,
+        prompt: saPrompt,
+        type: 'short_answer',
+        points: 10,
+        hint: `Include at least two specific examples in your written response.`,
+        correctAnswer: `Comprehensive response connecting ${topic} concepts to practical application.`
+      });
+    }
+  }
+
+  return result;
 }
 
 startServer();

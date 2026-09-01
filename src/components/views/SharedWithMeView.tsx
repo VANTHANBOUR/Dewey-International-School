@@ -18,36 +18,36 @@ export const SharedWithMeView: React.FC<SharedWithMeViewProps> = ({
   sharedItemsList,
   currentUser,
 }) => {
-  const defaultSharedItems = [
+  const defaultSharedItems = (resources && resources.length > 0) ? [
     {
-      resourceId: resources[0]?.id || '1',
+      resourceId: resources[0]?.id || 'res-g6-sci',
       resource: resources[0],
       sharedBy: 'Dr. Evelyn Martinez (Science Dept Head)',
       date: 'Aug 18, 2026',
       note: 'Please review Unit 1 cellular diagrams for next week’s inter-school STEAM exhibition.'
     },
-    {
-      resourceId: resources[3]?.id || '4',
+    ...(resources.length > 3 ? [{
+      resourceId: resources[3]?.id || 'res-g8-chem',
       resource: resources[3],
       sharedBy: 'Marcus Vance (Senior Lab Instructor)',
       date: 'Aug 15, 2026',
       note: 'Updated safety measures for titration lab.'
-    },
-    {
-      resourceId: resources[5]?.id || '6',
+    }] : []),
+    ...(resources.length > 5 ? [{
+      resourceId: resources[5]?.id || 'res-g10-eng',
       resource: resources[5],
       sharedBy: 'Elena Rostova (Physics Coordinator)',
       date: 'Aug 12, 2026',
       note: 'Newtonian mechanics interactive module.'
-    }
-  ];
+    }] : [])
+  ] : [];
 
   // Merge any dynamically shared items
   const dynamicItems = (sharedItemsList || []).map(item => {
-    const matchedRes = resources.find(r => r.id === item.resourceId);
+    const matchedRes = (resources || []).find(r => r && r.id === item.resourceId);
     return {
       resourceId: item.resourceId,
-      resource: matchedRes || resources[0],
+      resource: matchedRes || (resources && resources[0]),
       sharedBy: `${item.sharedByName} (${item.sharedByRole || 'Faculty'})`,
       date: new Date(item.sharedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       note: item.note || 'Shared for curriculum review.'

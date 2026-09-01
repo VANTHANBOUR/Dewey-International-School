@@ -280,7 +280,22 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
     setCreatedResource(null);
   };
 
-  const gradesList: GradeLevel[] = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const gradesList: GradeLevel[] = [
+    'Foundation',
+    'Preparatory',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12'
+  ];
   const subjectsList: SubjectCategory[] = [
     'Science',
     'Mathematics',
@@ -494,7 +509,7 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
                 >
                   {gradesList.map((g) => (
                     <option key={g} value={g}>
-                      Grade {g}
+                      {g === 'Foundation' ? 'Foundation' : g === 'Preparatory' ? 'Preparatory' : `Grade ${g}`}
                     </option>
                   ))}
                 </select>

@@ -43,6 +43,7 @@ interface WorksheetsViewProps {
   onOpenResource: (resource: Resource) => void;
   onOpenUploadModal: () => void;
   onOpenCreateLessonPlanModal?: () => void;
+  onOpenCreateWorksheetModal?: () => void;
   currentUser?: UserProfile | null;
   onDeleteLessonPlan?: (planId: string) => void;
 }
@@ -53,6 +54,7 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
   onOpenResource,
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
+  onOpenCreateWorksheetModal,
   currentUser,
   onDeleteLessonPlan,
 }) => {
@@ -120,7 +122,23 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
     setTimeout(() => setDownloadToast(null), 3000);
   };
 
-  const gradesList: (GradeLevel | 'all')[] = ['all', 'K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const gradesList: (GradeLevel | 'all')[] = [
+    'all',
+    'Foundation',
+    'Preparatory',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12'
+  ];
   const subjectsList = ['all', 'Science', 'Mathematics', 'English', 'Social Studies', 'Technology', 'Engineering', 'Arts', 'Physical Education'];
 
   const getScopeBadge = (scope?: LessonPlanScope) => {
@@ -182,6 +200,21 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
               </button>
             )}
 
+            {/* Create Worksheet Button */}
+            {onOpenCreateWorksheetModal && (
+              <button
+                id="btn-create-worksheet-header"
+                onClick={onOpenCreateWorksheetModal}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-extrabold shadow-lg shadow-purple-600/25 transition-all flex items-center gap-2 border border-purple-300/30 transform hover:-translate-y-0.5"
+              >
+                <PlusCircle size={16} />
+                <span>Create Worksheet</span>
+                <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider">
+                  Print-Ready Questions & Key
+                </span>
+              </button>
+            )}
+
             <button
               onClick={onOpenUploadModal}
               className="px-4 py-2.5 rounded-xl bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 border border-blue-400/30"
@@ -218,6 +251,18 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
               >
                 <PlusCircle size={14} />
                 <span>Create Lesson Plan</span>
+              </button>
+            )}
+
+            {/* Create Worksheet Fast Button */}
+            {onOpenCreateWorksheetModal && (
+              <button
+                id="btn-create-worksheet-filterbar"
+                onClick={onOpenCreateWorksheetModal}
+                className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <PlusCircle size={14} />
+                <span>Create Worksheet</span>
               </button>
             )}
 
@@ -278,7 +323,7 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                {g === 'all' ? 'All Grades' : `Gr ${g}`}
+                {g === 'all' ? 'All Grades' : g === 'Foundation' ? 'Found' : g === 'Preparatory' ? 'Prep' : `Gr ${g}`}
               </button>
             ))}
           </div>

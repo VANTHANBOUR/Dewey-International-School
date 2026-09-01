@@ -7,6 +7,14 @@ interface BookCoverProps {
 }
 
 export const BookCoverIllustration: React.FC<BookCoverProps> = ({ resource, className = '' }) => {
+  if (!resource) {
+    return (
+      <div className={`relative w-full h-full bg-slate-800 flex items-center justify-center p-2 text-white/50 text-xs font-semibold ${className}`}>
+        Dewey Curriculum
+      </div>
+    );
+  }
+
   // Render high-fidelity cover based on resource id / properties
   switch (resource.id) {
     case 'res-g6-sci':
@@ -234,16 +242,71 @@ export const BookCoverIllustration: React.FC<BookCoverProps> = ({ resource, clas
         </div>
       );
 
+    case 'res-prep-early-steam':
+      return (
+        <div className={`relative w-full h-full bg-[#881337] overflow-hidden flex flex-col justify-between p-3.5 ${className}`}>
+          <div className="absolute -top-4 -right-4 w-28 h-28 bg-rose-500/30 rounded-full blur-lg" />
+          <div className="relative z-10">
+            <span className="text-[10px] font-black text-rose-300 tracking-wider uppercase">Preparatory STEAM</span>
+            <h4 className="text-base font-black text-white leading-tight mt-0.5">Early Science<br/>Discovery</h4>
+          </div>
+          <div className="relative z-10 flex justify-center py-1">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/30 flex items-center justify-center text-white text-xl font-bold shadow-inner">
+              🌱
+            </div>
+          </div>
+          <div className="relative z-10 text-[10px] font-bold text-rose-200 truncate">5 Senses & Colors</div>
+        </div>
+      );
+
+    case 'res-found-numbers':
+      return (
+        <div className={`relative w-full h-full bg-[#155e75] overflow-hidden flex flex-col justify-between p-3.5 ${className}`}>
+          <div className="absolute -bottom-4 -left-4 w-28 h-28 bg-cyan-400/30 rounded-full blur-lg" />
+          <div className="relative z-10">
+            <span className="text-[10px] font-black text-cyan-300 tracking-wider uppercase">Foundation Math</span>
+            <h4 className="text-base font-black text-white leading-tight mt-0.5">Numbers &<br/>Patterns</h4>
+          </div>
+          <div className="relative z-10 flex justify-center py-1">
+            <div className="text-2xl font-black text-cyan-200 font-mono tracking-wider">
+              1 • 2 • 3
+            </div>
+          </div>
+          <div className="relative z-10 text-[10px] font-bold text-cyan-200 truncate">Counting to 20</div>
+        </div>
+      );
+
+    case 'res-gk-foundations':
+      return (
+        <div className={`relative w-full h-full bg-[#2e1065] overflow-hidden flex flex-col justify-between p-3.5 ${className}`}>
+          <div className="absolute -top-4 -left-4 w-28 h-28 bg-purple-500/30 rounded-full blur-lg" />
+          <div className="relative z-10">
+            <span className="text-[10px] font-black text-purple-300 tracking-wider uppercase">Foundation English</span>
+            <h4 className="text-base font-black text-white leading-tight mt-0.5">Phonics &<br/>Alphabet</h4>
+          </div>
+          <div className="relative z-10 flex justify-center py-1">
+            <div className="text-2xl font-black text-purple-200 font-mono tracking-wider">
+              A • B • C
+            </div>
+          </div>
+          <div className="relative z-10 text-[10px] font-bold text-purple-200 truncate">Sounds & Rhymes</div>
+        </div>
+      );
+
     default:
       // Generic high-quality fallback based on resource subject
       return (
         <div className={`relative w-full h-full bg-gradient-to-br ${resource.coverTheme?.bg || 'from-slate-800 to-slate-950'} overflow-hidden flex flex-col justify-between p-3.5 ${className}`}>
           <div className="relative z-10">
-            <span className="text-[10px] font-bold text-white/70 uppercase">Grade {resource.grade} • {resource.subject}</span>
+            <span className="text-[10px] font-bold text-white/70 uppercase">
+              {resource.grade === 'Preparatory' ? 'Preparatory' : resource.grade === 'Foundation' ? 'Foundation' : `Grade ${resource.grade}`} • {resource.subject}
+            </span>
             <h4 className="text-base font-extrabold text-white leading-tight mt-1">{resource.title}</h4>
           </div>
           <div className="relative z-10 text-center py-2">
-            <span className="text-3xl font-black text-white/30 font-mono">{resource.grade}</span>
+            <span className="text-3xl font-black text-white/30 font-mono">
+              {resource.grade === 'Preparatory' ? 'Prep' : resource.grade === 'Foundation' ? 'Found' : resource.grade}
+            </span>
           </div>
           <div className="relative z-10 text-[10px] font-medium text-white/80 truncate">{resource.subtitle}</div>
         </div>

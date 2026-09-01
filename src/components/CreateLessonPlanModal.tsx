@@ -127,7 +127,22 @@ const INSTRUCTION_PROMPT_CHIPS = [
   { label: 'Rubrics & Exit Slips', icon: '📝', text: 'Design specific formative exit tickets, criteria-referenced rubrics, and quick checks for understanding' }
 ];
 
-const GRADES_LIST: GradeLevel[] = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+const GRADES_LIST: GradeLevel[] = [
+  'Foundation',
+  'Preparatory',
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '9',
+  '10',
+  '11',
+  '12'
+];
 
 export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
   isOpen,
@@ -1475,7 +1490,9 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   className="w-full px-3 py-2 bg-orange-50/80 border border-orange-200 hover:border-orange-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none transition-all shadow-2xs"
                 >
                   {GRADES_LIST.map((g) => (
-                    <option key={g} value={g}>Grade {g}</option>
+                    <option key={g} value={g}>
+                      {g === 'Foundation' ? 'Foundation' : g === 'Preparatory' ? 'Preparatory' : `Grade ${g}`}
+                    </option>
                   ))}
                 </select>
               </div>

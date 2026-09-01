@@ -10,7 +10,21 @@ export type SubjectCategory =
   | 'Arts'
   | 'Physical Education';
 
-export type GradeLevel = 'K' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | '11' | '12';
+export type GradeLevel = 
+  | 'Foundation'
+  | 'Preparatory'
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | '7'
+  | '8'
+  | '9'
+  | '10'
+  | '11'
+  | '12';
 
 export interface PageContent {
   pageNumber: number;

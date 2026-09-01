@@ -11,7 +11,34 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
   selectedGrade,
   onSelectGrade,
 }) => {
-  const grades: GradeLevel[] = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const grades: GradeLevel[] = [
+    'Foundation',
+    'Preparatory',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12'
+  ];
+
+  const getGradeShortLabel = (g: GradeLevel) => {
+    if (g === 'Foundation') return 'Found';
+    if (g === 'Preparatory') return 'Prep';
+    return g;
+  };
+
+  const getGradeFullTitle = (g: GradeLevel) => {
+    if (g === 'Foundation') return 'Filter Foundation Curriculum';
+    if (g === 'Preparatory') return 'Filter Preparatory Curriculum';
+    return `Filter Grade ${g} Curriculum`;
+  };
 
   return (
     <div className="mt-4 select-none">
@@ -30,27 +57,30 @@ export const GradeSelector: React.FC<GradeSelectorProps> = ({
         )}
       </div>
 
-      {/* Grade Buttons Row matching the image */}
-      <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar">
+      {/* Grade Buttons Row */}
+      <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar">
         {grades.map((grade) => {
-          const colorConfig = GRADE_COLORS[grade];
+          const colorConfig = GRADE_COLORS[grade] || { bg: 'bg-blue-600', text: 'text-white' };
           const isSelected = selectedGrade === grade;
+          const isNamedGrade = grade === 'Preparatory' || grade === 'Foundation';
 
           return (
             <button
               key={grade}
               id={`grade-pill-${grade}`}
               onClick={() => onSelectGrade(isSelected ? null : grade)}
-              className={`flex-1 min-w-[42px] sm:min-w-[48px] h-10 sm:h-11 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-105 active:scale-95 ${
+              className={`flex-1 px-2.5 ${
+                isNamedGrade ? 'min-w-[56px] sm:min-w-[62px]' : 'min-w-[40px] sm:min-w-[46px]'
+              } h-10 sm:h-11 rounded-xl font-extrabold text-xs sm:text-sm flex items-center justify-center transition-all duration-200 shadow-xs hover:scale-105 active:scale-95 whitespace-nowrap ${
                 colorConfig.bg
               } ${colorConfig.text} ${
                 isSelected
                   ? 'ring-3 ring-offset-2 ring-blue-600 shadow-lg scale-105'
                   : 'opacity-95 hover:opacity-100 hover:shadow-md'
               }`}
-              title={`Filter Grade ${grade}`}
+              title={getGradeFullTitle(grade)}
             >
-              <span>{grade}</span>
+              <span>{getGradeShortLabel(grade)}</span>
             </button>
           );
         })}

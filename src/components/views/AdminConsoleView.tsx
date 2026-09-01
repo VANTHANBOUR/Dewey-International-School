@@ -197,18 +197,8 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
 
-  // Subscribe to real-time credentials from Firebase Firestore (Only for Admin and STEAM Manager)
+  // Subscribe to real-time credentials from Firebase Firestore
   useEffect(() => {
-    if (!canAccessUserAccounts) {
-      if (adminTab === 'credentials') {
-        setAdminTab('uploads');
-      }
-      setCredentials([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
     seedInitialInstitutionalCredentialsToFirestore();
 
     const unsubscribe = subscribeToAllUserCredentials((list) => {
@@ -219,13 +209,33 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [canAccessUserAccounts, adminTab]);
+  }, []);
 
-  // Filtered credentials list
+  // Filtered credentials list with robust role matching
   const filteredCredentials = useMemo(() => {
     return credentials.filter((cred) => {
-      if (selectedRoleFilter !== 'all' && cred.role !== selectedRoleFilter) {
-        return false;
+      if (selectedRoleFilter !== 'all') {
+        if (selectedRoleFilter === 'STEAM Manager' || selectedRoleFilter === 'Super Admin') {
+          const isSteam =
+            cred.role === 'STEAM Manager' ||
+            cred.role === 'Super Admin' ||
+            isSuperAdminEmail(cred.email) ||
+            !!cred.isSuperAdmin;
+          if (!isSteam) return false;
+        } else if (selectedRoleFilter === 'Administrator') {
+          const isAdmin =
+            (cred.role === 'Administrator' || cred.role === 'Admin') &&
+            !isSuperAdminEmail(cred.email) &&
+            cred.role !== 'STEAM Manager';
+          if (!isAdmin) return false;
+        } else if (selectedRoleFilter === 'Faculty') {
+          const isFaculty =
+            cred.role === 'Educator' ||
+            cred.role === 'Lead Curriculum Specialist';
+          if (!isFaculty) return false;
+        } else if (cred.role !== selectedRoleFilter) {
+          return false;
+        }
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -242,24 +252,33 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
     });
   }, [credentials, selectedRoleFilter, searchQuery]);
 
-  // Statistics for Users
+  // Statistics for Users with separate STEAM Manager and Administrator counts
   const stats = useMemo(() => {
     const total = credentials.length;
-    const admins = credentials.filter(c => c.role === 'Administrator').length;
-    const faculty = credentials.filter(c => c.role === 'Educator' || c.role === 'Lead Curriculum Specialist' || c.role === 'STEAM Manager').length;
+    const steamManagers = credentials.filter(
+      c => c.role === 'STEAM Manager' || c.role === 'Super Admin' || isSuperAdminEmail(c.email) || !!c.isSuperAdmin
+    ).length;
+    const admins = credentials.filter(
+      c => (c.role === 'Administrator' || c.role === 'Admin') && !isSuperAdminEmail(c.email) && c.role !== 'STEAM Manager'
+    ).length;
+    const faculty = credentials.filter(
+      c => c.role === 'Educator' || c.role === 'Lead Curriculum Specialist'
+    ).length;
     const students = credentials.filter(c => c.role === 'Student').length;
-    return { total, admins, faculty, students };
+    return { total, steamManagers, admins, faculty, students };
   }, [credentials]);
 
   // All Uploaded Resources (Custom uploads, teacher files, uploaded PDFs, worksheets)
   const allUploadedResources = useMemo(() => {
-    return resources.filter(r => 
-      r.id.startsWith('res-custom-') || 
-      r.isCustomUpload === true || 
-      !!r.uploadedByUserId || 
-      r.source === 'uploaded' ||
-      r.category === 'custom' ||
-      r.isPersonalOnly === true
+    return (resources || []).filter(r => 
+      r && r.id && (
+        r.id.startsWith('res-custom-') || 
+        r.isCustomUpload === true || 
+        !!r.uploadedByUserId || 
+        r.source === 'uploaded' ||
+        r.category === 'custom' ||
+        r.isPersonalOnly === true
+      )
     );
   }, [resources]);
 
@@ -746,7 +765,50 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
     }
   };
 
+  const handleQuickSignInAsSteamManager = () => {
+    const steamCred = credentials.find(c => isSuperAdminEmail(c.email) || c.role === 'STEAM Manager') || {
+      id: 'user-sabrina',
+      name: 'Sabrina Bour',
+      email: 'vanthanbour@diu.edu.kh',
+      password: 'Dewey2025!',
+      role: 'STEAM Manager',
+      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop',
+      initials: 'SB',
+      department: 'Dewey Faculty & STEAM Innovation',
+      isSuperAdmin: true,
+      canAssignRoles: true,
+      adminScope: 'all',
+      assignedDepartments: ['All'],
+      assignedTasks: ['all', 'books_management', 'lesson_plans_audit', 'user_management', 'curriculum_review', 'analytics_oversight'],
+      registeredAt: '2025-01-15T08:00:00.000Z'
+    };
+    handleTestSignInAsUser(steamCred as UserCredentialRecord);
+    setAdminTab('credentials');
+  };
+
+  const handleQuickSignInAsAdmin = () => {
+    const adminCred = credentials.find(c => (c.role === 'Administrator' || c.role === 'Admin') && !isSuperAdminEmail(c.email)) || {
+      id: 'user-admin',
+      name: 'System Administrator',
+      email: 'admin@diu.edu.kh',
+      password: 'AdminDewey2025!',
+      role: 'Administrator',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+      initials: 'SA',
+      department: 'Academic Directorate & IT Governance',
+      isSuperAdmin: false,
+      canAssignRoles: true,
+      adminScope: 'all',
+      assignedDepartments: ['All'],
+      assignedTasks: ['books_management', 'lesson_plans_audit', 'curriculum_review', 'analytics_oversight'],
+      registeredAt: '2025-01-10T08:00:00.000Z'
+    };
+    handleTestSignInAsUser(adminCred as UserCredentialRecord);
+    setAdminTab('credentials');
+  };
+
   const handleTestSignInAsUser = (record: UserCredentialRecord) => {
+    const isSuper = isSuperAdminEmail(record.email) || !!record.isSuperAdmin || record.role === 'STEAM Manager' || record.role === 'Super Admin';
     const profile: UserProfile = {
       id: record.id,
       name: record.name,
@@ -755,7 +817,14 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
       avatarUrl: record.avatarUrl,
       initials: record.initials,
       department: record.department,
-      gradeAssigned: record.gradeAssigned
+      gradeAssigned: record.gradeAssigned,
+      isSuperAdmin: isSuper,
+      canAssignRoles: true,
+      adminScope: isSuper ? 'all' : (record.adminScope || 'all'),
+      assignedDepartments: isSuper ? ['All'] : (record.assignedDepartments || ['All']),
+      assignedTasks: isSuper
+        ? ['all', 'books_management', 'lesson_plans_audit', 'user_management', 'curriculum_review', 'analytics_oversight']
+        : (record.assignedTasks || ['books_management', 'lesson_plans_audit'])
     };
 
     saveStoredRecentUser(profile);
@@ -839,7 +908,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
             <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-2xl">
               {isSuperAdmin
                 ? 'Logged in as Sabrina Bour (vanthanbour@diu.edu.kh) with Super Admin executive authority over All Departments, user role assignments, task delegations, and school-wide asset purging.'
-                : `Logged in as ${currentUser?.name || 'Administrator'} with access configured for ${
+                : `Logged in as ${currentUser?.name || 'Guest'} with access configured for ${
                     userAdminScope === 'all' ? 'All Institutional Departments' : userAssignedDepts.join(', ')
                   }.`}
             </p>
@@ -873,32 +942,31 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
               <span>Teacher Lesson Plans ({allCustomLessonPlans.length})</span>
             </button>
 
-            {canAccessUserAccounts ? (
-              <button
-                id="admin-tab-credentials-btn"
-                onClick={() => setAdminTab('credentials')}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
-                  adminTab === 'credentials'
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 scale-[1.02]'
-                    : 'text-slate-300 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Users size={16} />
-                <span>User Accounts ({credentials.length})</span>
-              </button>
-            ) : (
-              <div
-                id="admin-tab-credentials-locked"
-                title="Access Restricted: Only Administrators and STEAM Managers can access User Accounts"
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 text-slate-400 bg-white/5 border border-white/10 cursor-not-allowed opacity-75"
-              >
-                <Lock size={14} className="text-amber-400" />
-                <span>User Accounts</span>
-                <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded font-semibold border border-amber-500/30">
-                  Admin & STEAM Only
+            <button
+              id="admin-tab-credentials-btn"
+              onClick={() => {
+                if (!canAccessUserAccounts) {
+                  // Direct 1-click switch to STEAM Manager / Admin
+                  handleQuickSignInAsSteamManager();
+                } else {
+                  setAdminTab('credentials');
+                }
+              }}
+              title={canAccessUserAccounts ? 'Open User Accounts' : 'Click to activate STEAM Manager & open User Accounts'}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+                adminTab === 'credentials'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 scale-[1.02]'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Users size={16} />
+              <span>User Accounts ({credentials.length})</span>
+              {!canAccessUserAccounts && (
+                <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">
+                  Click to Activate
                 </span>
-              </div>
-            )}
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -1111,8 +1179,10 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                     className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
                   >
                     <option value="all">All Grades</option>
-                    {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(g => (
-                      <option key={g} value={g}>Grade {g}</option>
+                    {(['Foundation', 'Preparatory', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as GradeLevel[]).map(g => (
+                      <option key={g} value={g}>
+                        {g === 'Foundation' ? 'Foundation' : g === 'Preparatory' ? 'Preparatory' : `Grade ${g}`}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -1507,8 +1577,10 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                   className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none"
                 >
                   <option value="all">All Grades</option>
-                  {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(g => (
-                    <option key={g} value={g}>Grade {g}</option>
+                  {(['Foundation', 'Preparatory', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as GradeLevel[]).map(g => (
+                    <option key={g} value={g}>
+                      {g === 'Foundation' ? 'Foundation' : g === 'Preparatory' ? 'Preparatory' : `Grade ${g}`}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1696,101 +1768,141 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                {onOpenAuthModal && (
+              {/* Action Buttons with 1-Click Fast Role Sign In */}
+              <div className="space-y-3 pt-2">
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
                   <button
-                    onClick={() => onOpenAuthModal('signin')}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center gap-2"
+                    id="admin-quick-steam-signin-btn"
+                    onClick={handleQuickSignInAsSteamManager}
+                    className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs sm:text-sm rounded-xl shadow-md shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer"
                   >
-                    <Key size={15} />
-                    <span>Sign In as Admin or STEAM</span>
+                    <Crown size={15} className="text-slate-950" />
+                    <span>Instant 1-Click: Sign In as STEAM Manager (Super Admin)</span>
                   </button>
-                )}
-                <button
-                  onClick={() => setAdminTab('uploads')}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl transition-all flex items-center gap-1.5"
-                >
-                  <BookOpen size={15} />
-                  <span>Return to Books Management</span>
-                </button>
+
+                  <button
+                    id="admin-quick-admin-signin-btn"
+                    onClick={handleQuickSignInAsAdmin}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/25 transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <ShieldCheck size={15} />
+                    <span>Instant 1-Click: Sign In as Administrator</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  {onOpenAuthModal && (
+                    <button
+                      onClick={() => onOpenAuthModal('signin')}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                    >
+                      <Key size={13} />
+                      <span>Open Credentials Sign-In Dialog</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setAdminTab('uploads')}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                  >
+                    <BookOpen size={13} />
+                    <span>Return to Books Management</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ) : (
         <div className="space-y-6">
-          {/* 4 Stats Cards for Users */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4">
+          {/* 5 Stats Cards for Users */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5">
             <button
               onClick={() => setSelectedRoleFilter('all')}
-              className={`text-left bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+              className={`text-left bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
                 selectedRoleFilter === 'all'
-                  ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-sm'
+                  ? 'border-blue-500 ring-2 ring-blue-500/20 shadow-sm bg-blue-50/20'
                   : 'border-slate-200/80 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Accounts</span>
-                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Users size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <Users size={15} />
                 </div>
               </div>
-              <p className="text-2xl font-black text-slate-900 mt-2">{stats.total}</p>
-              <span className="text-[11px] text-blue-600 font-semibold mt-0.5 block">View All Registrations</span>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1.5">{stats.total}</p>
+              <span className="text-[10.5px] text-blue-600 font-semibold mt-0.5 block">All Accounts</span>
             </button>
 
             <button
-              onClick={() => setSelectedRoleFilter('Administrator')}
-              className={`text-left bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+              onClick={() => setSelectedRoleFilter(selectedRoleFilter === 'STEAM Manager' ? 'all' : 'STEAM Manager')}
+              className={`text-left bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
+                selectedRoleFilter === 'STEAM Manager'
+                  ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-sm bg-amber-50/20'
+                  : 'border-slate-200/80 hover:border-slate-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">STEAM</span>
+                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <Crown size={15} />
+                </div>
+              </div>
+              <p className="text-xl sm:text-2xl font-black text-amber-900 mt-1.5">{stats.steamManagers}</p>
+              <span className="text-[10.5px] text-amber-600 font-semibold mt-0.5 block">Super Admins</span>
+            </button>
+
+            <button
+              onClick={() => setSelectedRoleFilter(selectedRoleFilter === 'Administrator' ? 'all' : 'Administrator')}
+              className={`text-left bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
                 selectedRoleFilter === 'Administrator'
-                  ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-sm'
+                  ? 'border-purple-500 ring-2 ring-purple-500/20 shadow-sm bg-purple-50/20'
                   : 'border-slate-200/80 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Administrators</span>
-                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <ShieldCheck size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Admins</span>
+                <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <ShieldCheck size={15} />
                 </div>
               </div>
-              <p className="text-2xl font-black text-purple-900 mt-2">{stats.admins}</p>
-              <span className="text-[11px] text-purple-600/80 font-medium mt-0.5 block">Governance & IT</span>
+              <p className="text-xl sm:text-2xl font-black text-purple-900 mt-1.5">{stats.admins}</p>
+              <span className="text-[10.5px] text-purple-600/80 font-medium mt-0.5 block">Governance</span>
             </button>
 
             <button
-              onClick={() => setSelectedRoleFilter('Educator')}
-              className={`text-left bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
-                selectedRoleFilter === 'Educator' || selectedRoleFilter === 'Lead Curriculum Specialist' || selectedRoleFilter === 'STEAM Manager'
-                  ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-sm'
+              onClick={() => setSelectedRoleFilter(selectedRoleFilter === 'Faculty' ? 'all' : 'Faculty')}
+              className={`text-left bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
+                selectedRoleFilter === 'Faculty'
+                  ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-sm bg-indigo-50/20'
                   : 'border-slate-200/80 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Faculty Members</span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <Key size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Faculty</span>
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                  <Key size={15} />
                 </div>
               </div>
-              <p className="text-2xl font-black text-amber-900 mt-2">{stats.faculty}</p>
-              <span className="text-[11px] text-amber-600/80 font-medium mt-0.5 block">Teachers & STEAM</span>
+              <p className="text-xl sm:text-2xl font-black text-indigo-900 mt-1.5">{stats.faculty}</p>
+              <span className="text-[10.5px] text-indigo-600/80 font-medium mt-0.5 block">Teachers & Leads</span>
             </button>
 
             <button
-              onClick={() => setSelectedRoleFilter('Student')}
-              className={`text-left bg-white rounded-2xl border p-4 shadow-xs transition-all cursor-pointer ${
+              onClick={() => setSelectedRoleFilter(selectedRoleFilter === 'Student' ? 'all' : 'Student')}
+              className={`text-left bg-white rounded-2xl border p-3.5 sm:p-4 shadow-xs transition-all cursor-pointer ${
                 selectedRoleFilter === 'Student'
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm'
+                  ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-sm bg-emerald-50/20'
                   : 'border-slate-200/80 hover:border-slate-300'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Students</span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <GraduationCap size={16} />
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Students</span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <GraduationCap size={15} />
                 </div>
               </div>
-              <p className="text-2xl font-black text-emerald-900 mt-2">{stats.students}</p>
-              <span className="text-[11px] text-emerald-600/80 font-medium mt-0.5 block">Secondary Scholars</span>
+              <p className="text-xl sm:text-2xl font-black text-emerald-900 mt-1.5">{stats.students}</p>
+              <span className="text-[10.5px] text-emerald-600/80 font-medium mt-0.5 block">Scholars</span>
             </button>
           </div>
 
@@ -2034,7 +2146,7 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                           {/* Grade */}
                           <td className="py-3.5 px-4">
                             <span className="text-xs font-bold text-slate-700">
-                              {cred.gradeAssigned ? `Grade ${cred.gradeAssigned}` : 'All (K–12)'}
+                              {cred.gradeAssigned ? `Grade ${cred.gradeAssigned}` : 'All (Found–12)'}
                             </span>
                           </td>
 
@@ -2382,10 +2494,10 @@ export const AdminConsoleView: React.FC<AdminConsoleViewProps> = ({
                     onChange={(e) => setFormGrade(e.target.value as GradeLevel)}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="">All Grades (K–12)</option>
-                    {['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((g) => (
+                    <option value="">All Grades (Found–12)</option>
+                    {(['Foundation', 'Preparatory', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as GradeLevel[]).map((g) => (
                       <option key={g} value={g}>
-                        Grade {g}
+                        {g === 'Foundation' ? 'Foundation' : g === 'Preparatory' ? 'Preparatory' : `Grade ${g}`}
                       </option>
                     ))}
                   </select>

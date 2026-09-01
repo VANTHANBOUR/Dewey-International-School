@@ -16,7 +16,34 @@ export const GradesView: React.FC<GradesViewProps> = ({
   onSelectGradeFilter,
 }) => {
   const [activeGrade, setActiveGrade] = useState<GradeLevel>('6');
-  const gradesList: GradeLevel[] = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  const gradesList: GradeLevel[] = [
+    'Foundation',
+    'Preparatory',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '10',
+    '11',
+    '12'
+  ];
+
+  const formatGradeTabLabel = (g: GradeLevel) => {
+    if (g === 'Foundation') return 'Foundation';
+    if (g === 'Preparatory') return 'Preparatory';
+    return `Grade ${g}`;
+  };
+
+  const formatGradeHeaderTitle = (g: GradeLevel) => {
+    if (g === 'Foundation') return 'Foundation Materials';
+    if (g === 'Preparatory') return 'Preparatory Materials';
+    return `Grade ${g} Materials`;
+  };
 
   const gradeResources = resources.filter(r => r.grade === activeGrade);
 
@@ -31,7 +58,7 @@ export const GradesView: React.FC<GradesViewProps> = ({
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Curriculum by Grade Level</h1>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              Explore standardized learning syllabi, textbooks, and interactive flipbooks from Kindergarten through Grade 12.
+              Explore standardized learning syllabi, textbooks, and interactive flipbooks from Preparatory and Foundation through Grade 12.
             </p>
           </div>
         </div>
@@ -39,7 +66,7 @@ export const GradesView: React.FC<GradesViewProps> = ({
         {/* Grade tabs */}
         <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
           {gradesList.map((g) => {
-            const config = GRADE_COLORS[g];
+            const config = GRADE_COLORS[g] || { bg: 'bg-blue-600', text: 'text-white' };
             const isActive = activeGrade === g;
 
             return (
@@ -47,13 +74,13 @@ export const GradesView: React.FC<GradesViewProps> = ({
                 key={g}
                 id={`grades-tab-${g}`}
                 onClick={() => setActiveGrade(g)}
-                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   isActive
                     ? `${config.bg} text-white shadow-lg ring-2 ring-offset-2 ring-blue-500 scale-105`
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                <span>Grade {g}</span>
+                <span>{formatGradeTabLabel(g)}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20' : 'bg-slate-200'}`}>
                   {resources.filter(r => r.grade === g).length}
                 </span>
@@ -67,7 +94,7 @@ export const GradesView: React.FC<GradesViewProps> = ({
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-            <span>Grade {activeGrade} Materials</span>
+            <span>{formatGradeHeaderTitle(activeGrade)}</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
               {gradeResources.length} items
             </span>
@@ -77,7 +104,7 @@ export const GradesView: React.FC<GradesViewProps> = ({
         {gradeResources.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
             <BookOpen size={36} className="mx-auto text-slate-300 mb-2" />
-            <h3 className="font-bold text-slate-700">No resources currently filtered for Grade {activeGrade}</h3>
+            <h3 className="font-bold text-slate-700">No resources currently filtered for {formatGradeTabLabel(activeGrade)}</h3>
             <p className="text-xs text-slate-500 mt-1">Upload a resource or select another grade above.</p>
           </div>
         ) : (

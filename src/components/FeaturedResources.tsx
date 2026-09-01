@@ -31,6 +31,7 @@ interface FeaturedResourcesProps {
   onOpenShareModal?: (resource: Resource, e: React.MouseEvent) => void;
   onOpenUploadModal?: () => void;
   onOpenCreateLessonPlanModal?: () => void;
+  onOpenCreateWorksheetModal?: () => void;
   onViewAll?: () => void;
   currentUser?: UserProfile | null;
   onDeleteResource?: (resource: Resource) => void;
@@ -44,6 +45,7 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
   onOpenShareModal,
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
+  onOpenCreateWorksheetModal,
   onViewAll,
   currentUser,
   onDeleteResource,
@@ -111,6 +113,16 @@ export const FeaturedResources: React.FC<FeaturedResourcesProps> = ({
             >
               <Plus size={13} />
               <span>Create Lesson Plan</span>
+            </button>
+          )}
+          {onOpenCreateWorksheetModal && (
+            <button
+              id="featured-create-worksheet-btn"
+              onClick={onOpenCreateWorksheetModal}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold transition-colors border border-purple-300/60"
+            >
+              <Plus size={13} />
+              <span>Create Worksheet</span>
             </button>
           )}
           {onOpenUploadModal && (

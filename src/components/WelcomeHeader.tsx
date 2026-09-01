@@ -13,6 +13,7 @@ interface WelcomeHeaderProps {
   onOpenAuthModal?: (mode: 'signin' | 'signup') => void;
   onOpenUploadModal?: () => void;
   onOpenCreateLessonPlanModal?: () => void;
+  onOpenCreateWorksheetModal?: () => void;
   onViewMyLibrary?: () => void;
 }
 
@@ -27,6 +28,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   onOpenAuthModal,
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
+  onOpenCreateWorksheetModal,
   onViewMyLibrary,
 }) => {
   const firstName = currentUser?.name ? currentUser.name.split(' ')[0] : null;
@@ -64,6 +66,18 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
               </button>
             )}
 
+            {/* Create Worksheet Button */}
+            {onOpenCreateWorksheetModal && (
+              <button
+                id="header-create-worksheet-btn"
+                onClick={onOpenCreateWorksheetModal}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-purple-600/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-purple-300/30"
+              >
+                <Plus size={16} />
+                <span>Create Worksheet</span>
+              </button>
+            )}
+
             {/* Direct "Add Book" Quick Action on Dashboard */}
             {onOpenUploadModal && (
               <button
@@ -79,7 +93,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
         </div>
 
         <p className="text-sm font-medium text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
-          <span>Access K-12 curriculum resources, interactive flipbooks & worksheets</span>
+          <span>Access Found–12 curriculum resources, interactive flipbooks & worksheets</span>
           {currentUser && myLibraryCount > 0 && onViewMyLibrary && (
             <>
               <span>•</span>

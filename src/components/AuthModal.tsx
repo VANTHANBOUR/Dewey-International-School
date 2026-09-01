@@ -12,7 +12,8 @@ import {
   AlertCircle,
   Database,
   UserCheck,
-  Trash2
+  Trash2,
+  Crown
 } from 'lucide-react';
 import { UserProfile, GradeLevel } from '../types';
 import { DisLogo } from './DisLogo';
@@ -32,11 +33,16 @@ interface AuthModalProps {
   mandatory?: boolean;
 }
 
-export const PRESET_ACCOUNTS: UserProfile[] = [
+export interface PresetAccount extends UserProfile {
+  password?: string;
+}
+
+export const PRESET_ACCOUNTS: PresetAccount[] = [
   {
     id: 'user-sabrina',
     name: 'Sabrina Bour',
     email: 'vanthanbour@diu.edu.kh',
+    password: 'Dewey2025!',
     role: 'STEAM Manager',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop',
     initials: 'SB',
@@ -46,6 +52,45 @@ export const PRESET_ACCOUNTS: UserProfile[] = [
     adminScope: 'all',
     assignedDepartments: ['All'],
     assignedTasks: ['all', 'books_management', 'lesson_plans_audit', 'user_management', 'curriculum_review', 'analytics_oversight']
+  },
+  {
+    id: 'user-admin',
+    name: 'System Administrator',
+    email: 'admin@diu.edu.kh',
+    password: 'AdminDewey2025!',
+    role: 'Administrator',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
+    initials: 'SA',
+    department: 'Academic Directorate & IT Governance',
+    isSuperAdmin: false,
+    canAssignRoles: true,
+    adminScope: 'all',
+    assignedDepartments: ['All'],
+    assignedTasks: ['books_management', 'lesson_plans_audit', 'curriculum_review', 'analytics_oversight']
+  },
+  {
+    id: 'user-evelyn',
+    name: 'Dr. Evelyn Martinez',
+    email: 'evelyn.martinez@diu.edu.kh',
+    password: 'Science2025!',
+    role: 'Lead Curriculum Specialist',
+    avatarUrl: 'https://images.unsplash.com/photo-1580894732488-b210214a1a72?q=80&w=200&auto=format&fit=crop',
+    initials: 'EM',
+    department: 'Science & Biology Department Head',
+    gradeAssigned: '11',
+    isSuperAdmin: false
+  },
+  {
+    id: 'user-student-serey',
+    name: 'Serey Vong',
+    email: 'serey.vong@student.diu.edu.kh',
+    password: 'Student2025!',
+    role: 'Student',
+    avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200&auto=format&fit=crop',
+    initials: 'SV',
+    department: 'Grade 10 Scholar',
+    gradeAssigned: '10',
+    isSuperAdmin: false
   }
 ];
 
@@ -70,22 +115,25 @@ export const getStoredCredentials = (): Record<string, StoredCredential> => {
   } catch (e) {
     console.error('Error reading credentials', e);
   }
-  // Seed default institutional account for Sabrina Bour (supporting both spellings)
-  return {
-    'vanthanbour@diu.edu.kh': {
-      email: 'vanthanbour@diu.edu.kh',
-      password: 'Dewey2025!',
-      profile: PRESET_ACCOUNTS[0]
-    },
-    'vanthabour@diu.edu.kh': {
-      email: 'vanthabour@diu.edu.kh',
-      password: 'Dewey2025!',
-      profile: {
-        ...PRESET_ACCOUNTS[0],
-        email: 'vanthabour@diu.edu.kh'
-      }
+  
+  const map: Record<string, StoredCredential> = {};
+  PRESET_ACCOUNTS.forEach(p => {
+    map[p.email.toLowerCase()] = {
+      email: p.email,
+      password: p.password || 'Dewey2025!',
+      profile: p
+    };
+  });
+  // Also include alternate email spelling
+  map['vanthabour@diu.edu.kh'] = {
+    email: 'vanthabour@diu.edu.kh',
+    password: 'Dewey2025!',
+    profile: {
+      ...PRESET_ACCOUNTS[0],
+      email: 'vanthabour@diu.edu.kh'
     }
   };
+  return map;
 };
 
 export const saveStoredCredential = (credential: StoredCredential) => {
@@ -187,11 +235,35 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleQuickPresetLogin = (preset: PresetAccount) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    setInfoHint(null);
+    const updatedRecent = saveStoredRecentUser(preset);
+    setRecentUsers(updatedRecent);
+    setSuccessMessage(`Access Granted! Welcome back, ${preset.name} (${preset.role}).`);
+    setTimeout(() => {
+      onLoginSuccess(preset);
+      onClose();
+    }, 400);
+  };
+
   const handleSelectRecentAccount = (user: UserProfile) => {
     setSignInEmail(user.email);
-    setSignInPassword('');
+    const creds = getStoredCredentials();
+    const existing = creds[user.email.toLowerCase()];
+    const preset = PRESET_ACCOUNTS.find(p => p.email.toLowerCase() === user.email.toLowerCase());
+    const pass = existing?.password || preset?.password || '';
+
+    if (pass) {
+      setSignInPassword(pass);
+      setInfoHint(`Selected ${user.name} (${user.role}). Password filled — ready to sign in!`);
+    } else {
+      setSignInPassword('');
+      setInfoHint(`Filled email for ${user.name}. Please enter your password below to sign in.`);
+    }
+
     setErrorMessage(null);
-    setInfoHint(`Filled email for ${user.name}. Please enter your password below to sign in.`);
     if (mode !== 'signin') {
       setMode('signin');
     }
@@ -610,13 +682,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           ) : mode === 'signin' ? (
             /* Sign In Form */
             <form onSubmit={handleSignInSubmit} className="space-y-4">
+              {/* Instant 1-Click Role Access Buttons */}
+              <div className="p-3 bg-gradient-to-br from-slate-900 to-indigo-950 rounded-2xl text-white border border-slate-800 shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-amber-300 flex items-center gap-1">
+                    <Crown size={12} className="text-amber-400" />
+                    <span>Instant 1-Click Institutional Access:</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-semibold">No password needed</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PRESET_ACCOUNTS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      id={`fast-login-${preset.id}-btn`}
+                      onClick={() => handleQuickPresetLogin(preset)}
+                      disabled={isLoading}
+                      className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 text-left transition-all flex items-center gap-2 group cursor-pointer"
+                    >
+                      {preset.avatarUrl ? (
+                        <img src={preset.avatarUrl} alt={preset.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {preset.initials}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold text-white group-hover:text-amber-300 truncate">
+                          {preset.name}
+                        </p>
+                        <p className="text-[9.5px] text-slate-300 truncate">
+                          {preset.role}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Google Sign In Option */}
               <button
                 type="button"
                 id="firebase-google-signin-btn"
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2.5 transition-all shadow-xs hover:border-slate-300"
+                className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center justify-center gap-2.5 transition-all shadow-xs hover:border-slate-300 cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -815,10 +926,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-[10px] font-semibold text-blue-600 group-hover:underline hidden sm:inline">
-                              {isSelected ? 'Ready for password' : 'Select'}
-                            </span>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleQuickPresetLogin(user as PresetAccount);
+                              }}
+                              className="px-2 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold shadow-xs transition-all flex items-center gap-1"
+                              title="Instant 1-Click Login"
+                            >
+                              <LogIn size={11} />
+                              <span className="hidden sm:inline">Sign In</span>
+                            </button>
                             <button
                               type="button"
                               title="Remove from recent accounts"
@@ -919,9 +1039,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     {!isGradeEnabled ? (
                       <option value="">N/A (All Grades)</option>
                     ) : (
-                      ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map((g) => (
+                      (['Foundation', 'Preparatory', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] as GradeLevel[]).map((g) => (
                         <option key={g} value={g}>
-                          Grade {g}
+                          {g === 'Foundation' ? 'Foundation' : g === 'Preparatory' ? 'Preparatory' : `Grade ${g}`}
                         </option>
                       ))
                     )}
