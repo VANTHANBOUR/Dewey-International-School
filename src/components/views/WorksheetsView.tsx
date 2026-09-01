@@ -20,7 +20,9 @@ import {
   Timer,
   Trash2,
   Eye,
-  X
+  X,
+  Wand2,
+  BrainCircuit
 } from 'lucide-react';
 import { Resource, GradeLevel, SubjectCategory, LessonPlanItem, LessonPlanScope, UserProfile } from '../../types';
 import {
@@ -315,6 +317,37 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* AI Assistant Quick Banner for Lesson Plans */}
+      {(activeType === 'all' || activeType === 'lesson_plans' || activeType === 'custom_plans') && onOpenCreateLessonPlanModal && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white rounded-2xl p-4 sm:p-5 border border-purple-500/30 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/40 text-purple-300 flex items-center justify-center shrink-0">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-purple-300">
+                  AI Lesson Planning Assistant
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30 font-bold">
+                  Yearly • Quarter • Monthly • Weekly • Daily
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5 font-medium">
+                Generate standards-aligned lesson plans with custom teacher instructions, Bloom's objectives, and differentiated strategies in seconds.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenCreateLessonPlanModal}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <Wand2 size={15} />
+            <span>Open AI Plan Generator</span>
+          </button>
+        </div>
+      )}
 
       {/* Custom Created Lesson Plans Section (if any or when filtered) */}
       {(activeType === 'all' || activeType === 'custom_plans' || activeType === 'lesson_plans') && filteredCustomPlans.length > 0 && (

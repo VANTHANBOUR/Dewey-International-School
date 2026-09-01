@@ -118,6 +118,15 @@ const SUBJECTS_LIST: SubjectCategory[] = [
   'Physical Education'
 ];
 
+const INSTRUCTION_PROMPT_CHIPS = [
+  { label: 'STEAM & Inquiry', icon: '🔬', text: 'Incorporate hands-on STEAM experiments and real-world scientific inquiry' },
+  { label: '5E Framework', icon: '🔄', text: 'Structure deeply using the 5E Instructional Cycle (Engage, Explore, Explain, Elaborate, Evaluate)' },
+  { label: 'Higher-Order Rigor', icon: '🎯', text: 'Emphasize Bloom\'s Taxonomy higher-order analysis, problem-solving, and conceptual synthesis' },
+  { label: 'Bilingual Scaffolding', icon: '🌐', text: 'Include bilingual terminology glossaries and targeted scaffolding for ESL/ELL learners' },
+  { label: 'Collaborative Stations', icon: '👥', text: 'Focus on small-group workstation rotations, peer discussion protocols, and student presentations' },
+  { label: 'Rubrics & Exit Slips', icon: '📝', text: 'Design specific formative exit tickets, criteria-referenced rubrics, and quick checks for understanding' }
+];
+
 const GRADES_LIST: GradeLevel[] = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
 export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
@@ -432,6 +441,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
   const [isExplicitlyCleared, setIsExplicitlyCleared] = useState(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiToastMsg, setAiToastMsg] = useState<string | null>(null);
+  const [aiCustomInstruction, setAiCustomInstruction] = useState('');
 
   // Initialize teacher name & default title based on current user & subject
   useEffect(() => {
@@ -528,7 +538,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
     }, 2500);
   };
 
-  // AI-Powered Lesson Plan Generator using Subject, Grade, Title, and Unit context
+  // AI-Powered Lesson Plan Generator using Subject, Grade, Title, Unit, and Custom Teacher Instructions
   const handleAiGenerateLessonPlan = async () => {
     setIsAiGenerating(true);
     setIsExplicitlyCleared(false);
@@ -543,7 +553,9 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
           title: title.trim() || undefined,
           unit: unit.trim() || undefined,
           scope,
-          teacherName: teacherName.trim() || (currentUser?.name || 'Dewey Faculty Educator')
+          teacherName: teacherName.trim() || (currentUser?.name || 'Dewey Faculty Educator'),
+          customInstructions: aiCustomInstruction.trim() || undefined,
+          aiInstruction: aiCustomInstruction.trim() || undefined
         })
       });
 
@@ -582,6 +594,12 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
           setWeeklyDays(data.weeklyDays);
         }
 
+        if (Array.isArray(data.monthlyWeeklyBreakdown) && data.monthlyWeeklyBreakdown.length > 0) {
+          setWeeklyBreakdown(data.monthlyWeeklyBreakdown);
+        }
+        if (data.monthlyTheme) setMonthlyTheme(data.monthlyTheme);
+        if (data.targetMonth) setTargetMonth(data.targetMonth);
+
         if (data.formativeAssessment) setFormativeAssessment(data.formativeAssessment);
         if (data.summativeAssessment) setSummativeAssessment(data.summativeAssessment);
         if (data.supportDiff) setSupportDiff(data.supportDiff);
@@ -593,7 +611,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
         if (data.quarterWeeks) setQuarterWeeks(data.quarterWeeks);
         if (data.yearlyTerms) setYearlyTerms(data.yearlyTerms);
 
-        setAiToastMsg(`AI Generated: Grade ${grade} ${subject} Lesson Plan!`);
+        setAiToastMsg(`AI Generated: Grade ${grade} ${subject} (${SCOPE_OPTIONS.find(s => s.id === scope)?.title}) Plan!`);
       } else {
         // Fallback to rich template if endpoint returns unexpected format
         handleAutoFillTemplate();
@@ -1319,6 +1337,107 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* AI Instruction Message Box - Directly Below the Plans Tab */}
+          <div id="ai-instruction-message-box" className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white p-4 sm:p-5 rounded-2xl border border-purple-500/30 shadow-lg relative overflow-hidden space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-500/20 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-400/40 text-purple-300 flex items-center justify-center shrink-0">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-purple-300">
+                      AI Lesson Planning Assistant & Custom Instructions
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/30 text-purple-200 font-bold uppercase">
+                      {SCOPE_OPTIONS.find(s => s.id === scope)?.title}
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-slate-300 font-medium">
+                    Provide custom guidance, pedagogical frameworks, or special constraints for the AI model.
+                  </p>
+                </div>
+              </div>
+
+              {aiCustomInstruction && (
+                <button
+                  type="button"
+                  onClick={() => setAiCustomInstruction('')}
+                  className="text-[11px] text-purple-300 hover:text-white px-2.5 py-1 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 border border-purple-700/50 transition-all self-start sm:self-auto flex items-center gap-1 cursor-pointer font-semibold"
+                >
+                  <X size={12} />
+                  <span>Clear Instructions</span>
+                </button>
+              )}
+            </div>
+
+            {/* Custom Instruction Input Area - ONLY THIS TEXTBOX IS WHITE */}
+            <div className="relative">
+              <textarea
+                id="ai-instruction-textarea"
+                value={aiCustomInstruction}
+                onChange={(e) => setAiCustomInstruction(e.target.value)}
+                rows={3}
+                placeholder={`e.g. Focus on interactive small-group inquiry for ${SCOPE_OPTIONS.find(s => s.id === scope)?.title.toLowerCase()}, incorporate hands-on STEAM experiments, provide bilingual scaffolding for ELL students, and generate structured formative exit tickets...`}
+                className="w-full px-3.5 py-2.5 bg-white border-2 border-white focus:border-amber-400 rounded-xl text-xs sm:text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/50 transition-all resize-y font-medium shadow-md"
+              />
+            </div>
+
+            {/* Quick Prompt Badges */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-purple-300 uppercase tracking-wider">
+                <BrainCircuit size={13} className="text-purple-400" />
+                <span>Quick Prompt Suggestions:</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {INSTRUCTION_PROMPT_CHIPS.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      if (aiCustomInstruction.includes(chip.text)) return;
+                      setAiCustomInstruction(prev => prev ? `${prev}. ${chip.text}` : chip.text);
+                    }}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-purple-950/80 hover:bg-purple-800/80 text-purple-200 hover:text-white border border-purple-600/40 hover:border-purple-400 transition-all font-medium flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <span>{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Action Bar with Context and AI Generation Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-purple-500/10">
+              <div className="text-[11px] text-slate-300 flex items-center gap-1.5 flex-wrap">
+                <span className="text-slate-400 font-medium">Target:</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 text-purple-200 font-bold border border-purple-700/40">{subject}</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 text-purple-200 font-bold border border-purple-700/40">Grade {grade}</span>
+                <span className="px-2 py-0.5 rounded-md bg-purple-900/60 text-purple-200 font-bold border border-purple-700/40">{SCOPE_OPTIONS.find(s => s.id === scope)?.title}</span>
+              </div>
+
+              <button
+                id="btn-generate-ai-plan-with-instruction"
+                type="button"
+                disabled={isAiGenerating}
+                onClick={handleAiGenerateLessonPlan}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isAiGenerating ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin text-slate-950" />
+                    <span>AI Generating {SCOPE_OPTIONS.find(s => s.id === scope)?.title} Plan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 size={14} />
+                    <span>✨ Generate {SCOPE_OPTIONS.find(s => s.id === scope)?.title} Plan with AI</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
