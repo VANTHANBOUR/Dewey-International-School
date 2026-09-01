@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
+const __filename = process.argv[1];
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
