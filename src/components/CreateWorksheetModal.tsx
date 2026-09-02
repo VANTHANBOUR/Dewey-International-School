@@ -22,8 +22,11 @@ import {
   FileText,
   File,
   Image as ImageIcon,
-  FileCode
+  FileCode,
+  Bot
 } from 'lucide-react';
+
+import { GeminiChatbotCompanion } from './GeminiChatbotCompanion';
 
 export interface AttachedMaterialFile {
   id: string;
@@ -106,6 +109,7 @@ export const CreateWorksheetModal: React.FC<CreateWorksheetModalProps> = ({
 
   // AI Prompt & Question Generator Controls State
   const [aiPrompt, setAiPrompt] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [materialsText, setMaterialsText] = useState('');
   const [attachedMaterials, setAttachedMaterials] = useState<AttachedMaterialFile[]>([]);
   const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
@@ -473,7 +477,9 @@ export const CreateWorksheetModal: React.FC<CreateWorksheetModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className={`bg-white rounded-3xl shadow-2xl border border-slate-200 w-full transition-all duration-300 overflow-hidden flex flex-col max-h-[90vh] ${
+        isChatOpen ? 'max-w-6xl' : 'max-w-4xl'
+      }`}>
         {/* Modal Header */}
         <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-800 p-5 sm:p-6 text-white flex items-center justify-between relative shrink-0">
           <div className="flex items-center gap-3">
@@ -530,17 +536,36 @@ export const CreateWorksheetModal: React.FC<CreateWorksheetModalProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={handleAutoGenerateQuestions}
-            className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
-          >
-            <Wand2 size={14} />
-            <span>Auto-Fill AI Sample Questions</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* AI Chat Companion Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                isChatOpen
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+                  : 'bg-white text-indigo-600 hover:text-white hover:bg-indigo-600 border border-indigo-200'
+              }`}
+              title={isChatOpen ? "Close AI Chat Companion" : "Open AI Chat Companion"}
+            >
+              <Bot size={13} className={isChatOpen ? "animate-bounce" : ""} />
+              <span>{isChatOpen ? "Close Assistant" : "AI Assistant Companion"}</span>
+            </button>
+
+            <button
+              onClick={handleAutoGenerateQuestions}
+              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-extrabold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5"
+            >
+              <Wand2 size={14} />
+              <span>Auto-Fill AI Sample Questions</span>
+            </button>
+          </div>
         </div>
 
         {/* Main Body Content */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50/50">
+        <div className="flex-1 flex overflow-hidden relative bg-slate-50/50">
+          {/* Left Side: Scrollable main worksheet builder */}
+          <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {activeTab === 'edit' ? (
             <>
               {/* AI Question Generator & Prompt Panel */}
@@ -992,6 +1017,23 @@ export const CreateWorksheetModal: React.FC<CreateWorksheetModalProps> = ({
                 srcDoc={previewHTML}
                 title="Worksheet Print Preview"
                 className="w-full h-[550px] border border-slate-200 rounded-xl bg-white"
+              />
+            </div>
+          )}
+          </div>
+
+          {/* Right Side: Collapsible Gemini Assistant Panel */}
+          {isChatOpen && (
+            <div className="w-full md:w-[380px] shrink-0 border-l border-slate-200/80 h-full overflow-hidden absolute md:relative inset-y-0 right-0 z-30 flex flex-col bg-slate-900 shadow-2xl md:shadow-none animate-in slide-in-from-right duration-200">
+              <GeminiChatbotCompanion
+                roleType="worksheet"
+                subject={subject}
+                grade={grade}
+                currentTitle={title}
+                onSuggestionApply={(text) => {
+                  setAiPrompt(prev => prev ? `${prev}\n\n${text}` : text);
+                }}
+                onClose={() => setIsChatOpen(false)}
               />
             </div>
           )}

@@ -42,6 +42,7 @@ import {
 } from '../types';
 import { downloadLessonPlanDocument, generateLessonPlanHTML, printLessonPlanDocument } from '../utils/downloadHelper';
 import { getStandardsBySubjectAndGrade } from '../data/standardsData';
+import { GeminiChatbotCompanion } from './GeminiChatbotCompanion';
 
 interface CreateLessonPlanModalProps {
   isOpen: boolean;
@@ -458,6 +459,7 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
   const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [aiToastMsg, setAiToastMsg] = useState<string | null>(null);
   const [aiCustomInstruction, setAiCustomInstruction] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Initialize teacher name & default title based on current user & subject
   useEffect(() => {
@@ -1205,7 +1207,9 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-950/75 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
       <div 
-        className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-5xl my-auto flex flex-col max-h-[92vh] overflow-hidden"
+        className={`bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full transition-all duration-300 my-auto flex flex-col max-h-[92vh] overflow-hidden ${
+          isChatOpen ? 'max-w-7xl' : 'max-w-5xl'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -1230,6 +1234,21 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* AI Chat Companion Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                isChatOpen
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/25 border border-indigo-400/40'
+                  : 'bg-slate-800 text-indigo-300 hover:text-white hover:bg-slate-700 border border-indigo-700/40'
+              }`}
+              title={isChatOpen ? "Close AI Chat Companion" : "Open AI Chat Companion"}
+            >
+              <Bot size={14} className={isChatOpen ? "animate-bounce text-indigo-200" : "text-indigo-400"} />
+              <span>{isChatOpen ? "Close Chat" : "AI Chat"}</span>
+            </button>
+
             <button
               id="curriculum-generator-clear-fields-btn"
               type="button"
@@ -1300,7 +1319,9 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
         </div>
 
         {/* Modal Body / Tabs & Form */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 bg-slate-50/50">
+        <div className="flex-1 flex overflow-hidden relative bg-slate-50/50">
+          {/* Left Side: Scrollable main form panel */}
+          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
           {/* 1. Scope Selector (Yearly, Quarter, Monthly, Weekly, Daily) */}
           <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
@@ -2407,7 +2428,24 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Footer / Actions */}
+        {/* Right Side: Collapsible Gemini Assistant Panel */}
+        {isChatOpen && (
+          <div className="w-full md:w-[380px] shrink-0 border-l border-slate-200/80 h-full overflow-hidden absolute md:relative inset-y-0 right-0 z-30 flex flex-col bg-slate-900 shadow-2xl md:shadow-none animate-in slide-in-from-right duration-200">
+            <GeminiChatbotCompanion
+              roleType="lesson_plan"
+              subject={subject}
+              grade={grade}
+              currentTitle={title}
+              onSuggestionApply={(text) => {
+                setAiCustomInstruction(prev => prev ? `${prev}\n\n${text}` : text);
+              }}
+              onClose={() => setIsChatOpen(false)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Modal Footer / Actions */}
         <div className="bg-white px-5 py-4 border-t border-slate-200 shrink-0 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {aiToastMsg && (

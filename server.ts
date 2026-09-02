@@ -357,6 +357,71 @@ Return ONLY a JSON array of question objects matching this schema:
     }
   });
 
+  // AI Multi-turn Chat Endpoint for Lesson Plan, Worksheet, and Quiz
+  app.post('/api/gemini/chat', async (req, res) => {
+    try {
+      const { messages, systemInstruction, roleType } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (!apiKey) {
+        return res.json({
+          success: true,
+          text: `[OFFLINE MODE] I am your virtual ${roleType || 'Curriculum Co-pilot'} here at Dewey International School. To connect me to live Gemini AI reasoning, please configure your GEMINI_API_KEY in Secrets. How can I help you refine or brainstorm your curriculum today?`
+        });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      // Map roles from client formats into Gemini-supported standard array format
+      const contents = (messages || []).map((m: any) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content || m.text || '' }]
+      }));
+
+      // Fallback mechanism to try different compatible model aliases
+      let aiResponse: any = null;
+      const candidateModels = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+
+      for (const modelName of candidateModels) {
+        try {
+          aiResponse = await ai.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              systemInstruction: systemInstruction || 'You are an educational assistant at Dewey International School.',
+              temperature: 0.7
+            }
+          });
+          if (aiResponse && aiResponse.text) {
+            break;
+          }
+        } catch (modelErr: any) {
+          console.warn(`Model ${modelName} call failed or denied inside Chat, trying next in chain...`, modelErr?.message || modelErr);
+        }
+      }
+
+      const responseText = aiResponse?.text || "I'm sorry, I couldn't formulate a response right now. Please try asking in a different way!";
+
+      return res.json({
+        success: true,
+        text: responseText
+      });
+    } catch (err: any) {
+      console.error('Chat API Error:', err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || 'An error occurred during your conversation with Gemini.'
+      });
+    }
+  });
+
   // Vite integration
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

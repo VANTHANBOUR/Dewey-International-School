@@ -23,8 +23,11 @@ import {
   FileCode,
   BrainCircuit,
   Trophy,
-  AlertCircle
+  AlertCircle,
+  Bot
 } from 'lucide-react';
+
+import { GeminiChatbotCompanion } from './GeminiChatbotCompanion';
 import {
   GradeLevel,
   SubjectCategory,
@@ -108,6 +111,7 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
 
   // AI Prompt & Question Generator Controls State
   const [aiPrompt, setAiPrompt] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [materialsText, setMaterialsText] = useState('');
   const [attachedMaterials, setAttachedMaterials] = useState<AttachedMaterialFile[]>([]);
   const [isUploadingMaterial, setIsUploadingMaterial] = useState(false);
@@ -452,7 +456,9 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4 overflow-hidden select-none animate-in fade-in duration-200">
-      <div className="relative w-full max-w-5xl h-[92vh] sm:h-[88vh] bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
+      <div className={`relative w-full transition-all duration-300 h-[92vh] sm:h-[88vh] bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100 ${
+        isChatOpen ? 'max-w-7xl' : 'max-w-5xl'
+      }`}>
         
         {/* Modal Premium Header */}
         <div className="bg-gradient-to-r from-indigo-900 via-purple-950 to-slate-950 px-6 py-5 flex items-center justify-between shrink-0 border-b border-slate-800">
@@ -511,14 +517,33 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs text-slate-400">
-            <AlertCircle size={14} className="text-indigo-400" />
-            <span>Dual-Copy Rule: Saving generates print-ready assessment instantly.</span>
+          <div className="flex items-center gap-2">
+            {/* AI Chat Companion Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(!isChatOpen)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                isChatOpen
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'
+                  : 'bg-slate-800 text-indigo-300 hover:text-white hover:bg-slate-700 border border-indigo-500/20'
+              }`}
+              title={isChatOpen ? "Close AI Chat Companion" : "Open AI Chat Companion"}
+            >
+              <Bot size={13} className={isChatOpen ? "animate-bounce" : ""} />
+              <span>{isChatOpen ? "Close Assistant" : "AI Assistant Companion"}</span>
+            </button>
+
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-xs text-slate-400">
+              <AlertCircle size={14} className="text-indigo-400" />
+              <span>Dual-Copy Rule: Saving generates print-ready assessment instantly.</span>
+            </div>
           </div>
         </div>
 
         {/* Main Body Content */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-900/60 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+        <div className="flex-1 flex overflow-hidden relative bg-slate-900/60">
+          {/* Left Side: Scrollable main quiz builder */}
+          <div className="p-6 overflow-y-auto space-y-6 flex-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
           {activeTab === 'edit' ? (
             <>
               {/* Premium AI Generator Panel */}
@@ -998,6 +1023,23 @@ export const CreateQuizModal: React.FC<CreateQuizModalProps> = ({
                 srcDoc={previewHTML}
                 title="Quiz Print Preview"
                 className="w-full h-[550px] border border-slate-800 rounded-xl bg-white"
+              />
+            </div>
+          )}
+          </div>
+
+          {/* Right Side: Collapsible Gemini Assistant Panel */}
+          {isChatOpen && (
+            <div className="w-full md:w-[380px] shrink-0 border-l border-slate-800 h-full overflow-hidden absolute md:relative inset-y-0 right-0 z-30 flex flex-col bg-slate-900 shadow-2xl md:shadow-none animate-in slide-in-from-right duration-200">
+              <GeminiChatbotCompanion
+                roleType="quiz"
+                subject={subject}
+                grade={grade}
+                currentTitle={title}
+                onSuggestionApply={(text) => {
+                  setAiPrompt(prev => prev ? `${prev}\n\n${text}` : text);
+                }}
+                onClose={() => setIsChatOpen(false)}
               />
             </div>
           )}
