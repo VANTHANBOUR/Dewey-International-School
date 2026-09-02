@@ -40,30 +40,45 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 select-none">
       {/* Greeting text & Quick Action */}
-      <div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0f172a] tracking-tight flex items-center gap-2">
-            {currentUser ? (
-              <>
-                <span>Welcome back, {firstName}!</span>
-                <span className="inline-block animate-bounce origin-bottom text-2xl">👋</span>
-              </>
-            ) : (
-              <>
-                <span>Dewey Digital Curriculum Portal</span>
-                <Sparkles size={24} className="text-amber-500" />
-              </>
-            )}
-          </h1>
+      <div className="space-y-4">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0f172a] tracking-tight flex items-center gap-2">
+          {currentUser ? (
+            <>
+              <span>Welcome back, {firstName}!</span>
+              <span className="inline-block animate-bounce origin-bottom text-2xl">👋</span>
+            </>
+          ) : (
+            <>
+              <span>Dewey Digital Curriculum Portal</span>
+              <Sparkles size={24} className="text-amber-500" />
+            </>
+          )}
+        </h1>
 
-          {/* Quick Actions on Dashboard */}
-          <div className="flex items-center gap-2 flex-wrap">
+        {/* Quick Actions Panel */}
+        <div className="flex flex-col gap-3">
+          {/* Row 1: Add Book Button (Now positioned explicitly above Lesson Plan, Worksheet, and Quiz) */}
+          {onOpenUploadModal && (
+            <div className="flex items-center justify-start">
+              <button
+                id="header-add-book-btn"
+                onClick={onOpenUploadModal}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+              >
+                <Plus size={16} />
+                <span>Add Book</span>
+              </button>
+            </div>
+          )}
+
+          {/* Row 2: Secondary Generator Actions */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-start">
             {/* Create Lesson Plan Button */}
             {onOpenCreateLessonPlanModal && (
               <button
                 id="header-create-lesson-plan-btn"
                 onClick={onOpenCreateLessonPlanModal}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-amber-500/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-amber-300/30"
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-amber-500/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-amber-300/30"
               >
                 <Plus size={16} />
                 <span>Create Lesson Plan</span>
@@ -75,7 +90,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
               <button
                 id="header-create-worksheet-btn"
                 onClick={onOpenCreateWorksheetModal}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-purple-600/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-purple-300/30"
+                className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-purple-600/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-purple-300/30"
               >
                 <Plus size={16} />
                 <span>Create Worksheet</span>
@@ -87,22 +102,10 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
               <button
                 id="header-generate-quiz-btn"
                 onClick={onOpenCreateQuizModal}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-indigo-300/30"
+                className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-indigo-300/30"
               >
                 <Plus size={16} />
                 <span>Generate Quiz</span>
-              </button>
-            )}
-
-            {/* Direct "Add Book" Quick Action on Dashboard */}
-            {onOpenUploadModal && (
-              <button
-                id="header-add-book-btn"
-                onClick={onOpenUploadModal}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/30 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
-              >
-                <Plus size={16} />
-                <span>Add Book</span>
               </button>
             )}
           </div>
