@@ -11,6 +11,7 @@ import { UploadResourceModal } from './components/UploadResourceModal';
 import { ShareResourceModal } from './components/ShareResourceModal';
 import { CreateLessonPlanModal } from './components/CreateLessonPlanModal';
 import { CreateWorksheetModal } from './components/CreateWorksheetModal';
+import { CreateQuizModal } from './components/CreateQuizModal';
 import { AuthModal, PRESET_ACCOUNTS } from './components/AuthModal';
 
 import { GradesView } from './components/views/GradesView';
@@ -63,7 +64,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveNavTab>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
-  const [formatFilter, setFormatFilter] = useState<'all' | 'flipbook' | 'pdf'>('all');
+  const [formatFilter, setFormatFilter] = useState<'all' | 'flipbook' | 'pdf' | 'other'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
   // User Authentication state - Pops up by default on start as requested
@@ -109,6 +110,7 @@ export default function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCreateLessonPlanOpen, setIsCreateLessonPlanOpen] = useState(false);
   const [isCreateWorksheetOpen, setIsCreateWorksheetOpen] = useState(false);
+  const [isCreateQuizOpen, setIsCreateQuizOpen] = useState(false);
   const [shareTargetResource, setShareTargetResource] = useState<Resource | null>(null);
 
   // Custom Created Lesson Plans (Yearly, Quarter, Monthly, Weekly, Daily) synced live with Firestore
@@ -236,7 +238,7 @@ export default function App() {
   // 2. Filter out personal-only resources belonging to other users
   // 3. Map user's personal bookmarks, library status, favorites, and read dates
   const resources = useMemo(() => {
-    return (rawResources || [])
+    const baseList = (rawResources || [])
       .filter((res): res is Resource => {
         if (!res || !res.id) return false;
 
@@ -252,29 +254,57 @@ export default function App() {
           }
         }
         return true;
-      })
-      .map((res) => {
-        const myLibIds = userPersonalData?.myLibraryResourceIds || [];
-        const bmIds = userPersonalData?.bookmarkedResourceIds || [];
-        const favIds = userPersonalData?.favoriteResourceIds || [];
-        const recentReadList = userPersonalData?.recentlyRead || [];
-
-        const isMyLib =
-          myLibIds.includes(res.id) ||
-          (!!currentUser?.id && res.uploadedByUserId === currentUser.id);
-        const isBm = bmIds.includes(res.id);
-        const isFav = favIds.includes(res.id);
-        const userRead = recentReadList.find(r => r && r.resourceId === res.id);
-
-        return {
-          ...res,
-          isMyLibrary: isMyLib,
-          isBookmarked: isBm,
-          isFavorite: isFav,
-          lastReadDate: userRead ? userRead.date : res.lastReadDate,
-          lastReadTimeAgo: userRead ? 'Recently' : res.lastReadTimeAgo,
-        };
       });
+
+    // Automatically generate companion interactive Flipbooks for all PDF books to satisfy institutional standards
+    const listWithFlipbooks: Resource[] = [];
+    baseList.forEach((res) => {
+      listWithFlipbooks.push(res);
+      if (res.format === 'pdf') {
+        const flipbookId = `${res.id}-flipbook`;
+        const alreadyHasFlipbook = baseList.some(r => r.id === flipbookId);
+        if (!alreadyHasFlipbook) {
+          listWithFlipbooks.push({
+            ...res,
+            id: flipbookId,
+            title: `${res.title} (Flipbook)`,
+            format: 'flipbook',
+            fileType: 'application/epub+zip', // Flipbook standard ePUB container format type
+            coverTheme: {
+              bg: res.coverTheme?.bg || 'from-blue-900 via-indigo-900 to-slate-950',
+              text: 'text-white',
+              accent: '#3b82f6',
+              badgeBg: 'bg-blue-600',
+              badgeText: 'text-white'
+            }
+          });
+        }
+      }
+    });
+
+    return listWithFlipbooks.map((res) => {
+      const myLibIds = userPersonalData?.myLibraryResourceIds || [];
+      const bmIds = userPersonalData?.bookmarkedResourceIds || [];
+      const favIds = userPersonalData?.favoriteResourceIds || [];
+      const recentReadList = userPersonalData?.recentlyRead || [];
+
+      const lookupId = res.id;
+      const isMyLib =
+        myLibIds.includes(lookupId) ||
+        (!!currentUser?.id && res.uploadedByUserId === currentUser.id);
+      const isBm = bmIds.includes(lookupId);
+      const isFav = favIds.includes(lookupId);
+      const userRead = recentReadList.find(r => r && r.resourceId === lookupId);
+
+      return {
+        ...res,
+        isMyLibrary: isMyLib,
+        isBookmarked: isBm,
+        isFavorite: isFav,
+        lastReadDate: userRead ? userRead.date : res.lastReadDate,
+        lastReadTimeAgo: userRead ? 'Recently' : res.lastReadTimeAgo,
+      };
+    });
   }, [rawResources, deletedResourceIds, userPersonalData, currentUser]);
 
   // Auth Handlers
@@ -444,18 +474,27 @@ export default function App() {
 
   // Delete Resource handler with authorized Administrator / STEAM Manager real-time domain sync
   const handleDeleteResource = async (resource: Resource) => {
-    // 1. Delete document from Firestore
-    await deleteResourceFromFirestore(resource.id);
-    // 2. Register deletion in deleted_resources so all active sessions across the domain remove it instantly
-    await markResourceAsDeletedInFirestore(resource.id);
+    // Identify companions to delete both PDF and converted Flipbook
+    const companionId = resource.id.endsWith('-flipbook') 
+      ? resource.id.replace('-flipbook', '')
+      : `${resource.id}-flipbook`;
+
+    const targetIds = [resource.id, companionId];
+
+    for (const id of targetIds) {
+      // 1. Delete document from Firestore
+      await deleteResourceFromFirestore(id);
+      // 2. Register deletion in deleted_resources so all active sessions across the domain remove it instantly
+      await markResourceAsDeletedInFirestore(id);
+    }
 
     // 3. Log real-time audit activity
     if (currentUser) {
       await logSystemActivityToFirestore({
-        id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        id: `act-${Date.now()}-delete-dual`,
         action: 'delete',
-        title: 'Resource Deleted',
-        description: `Permanently removed "${resource.title}" (Grade ${resource.grade} • ${resource.subject}).`,
+        title: 'Resources Deleted',
+        description: `Permanently removed "${resource.title}" and its companion format copy (Grade ${resource.grade} • ${resource.subject}).`,
         userName: currentUser.name,
         userRole: currentUser.role,
         userEmail: currentUser.email,
@@ -466,7 +505,7 @@ export default function App() {
 
     // 4. Update local deleted IDs cache and rawResources
     setDeletedResourceIds(prev => {
-      const next = Array.from(new Set([...prev, resource.id]));
+      const next = Array.from(new Set([...prev, ...targetIds]));
       try {
         localStorage.setItem('dewey_deleted_resource_ids', JSON.stringify(next));
       } catch (e) {
@@ -476,7 +515,7 @@ export default function App() {
     });
 
     setRawResources(prev => {
-      const updated = prev.filter(r => r.id !== resource.id);
+      const updated = prev.filter(r => !targetIds.includes(r.id));
       try {
         const customItems = updated.filter(r => r.id.startsWith('res-custom-'));
         localStorage.setItem('dewey_custom_uploaded_resources', JSON.stringify(customItems));
@@ -486,15 +525,15 @@ export default function App() {
       return updated;
     });
 
-    // Close reader if deleting active book
-    if (activeReaderResource?.id === resource.id) {
+    // Close reader if deleting active book or companion
+    if (activeReaderResource && targetIds.includes(activeReaderResource.id)) {
       setActiveReaderResource(null);
     }
 
     const notif: NotificationItem = {
       id: `notif-${Date.now()}`,
-      title: 'Resource Deleted in Real Time',
-      message: `"${resource.title}" was removed across the entire domain and Firestore repository.`,
+      title: 'Resources Deleted in Real Time',
+      message: `"${resource.title}" and its companion format copy were removed across the entire domain and Firestore repository.`,
       time: 'Just now',
       isRead: false,
       type: 'alert'
@@ -634,7 +673,19 @@ export default function App() {
       // Grade filter
       if (selectedGrade && res.grade !== selectedGrade) return false;
       // Format filter
-      if (formatFilter !== 'all' && res.format !== formatFilter) return false;
+      if (formatFilter === 'pdf') {
+        if (res.format !== 'pdf' || res.category === 'Quiz') return false;
+      } else if (formatFilter === 'flipbook') {
+        if (res.format !== 'flipbook') return false;
+      } else if (formatFilter === 'other') {
+        if (res.format !== 'pdf' && res.format !== 'flipbook') {
+          return true;
+        }
+        if (res.category === 'Quiz' || res.category === 'Worksheet' || res.id.includes('quiz') || !!res.worksheet) {
+          return true;
+        }
+        return false;
+      }
       // Search filter
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
@@ -657,7 +708,8 @@ export default function App() {
   // Counts
   const totalCount = resources.length * 104 + 248; // Scaled to realistic school library numbers (1,248)
   const flipbookCount = resources.filter(r => r.format === 'flipbook').length * 41 + 128; // ~328
-  const pdfCount = resources.filter(r => r.format === 'pdf').length * 115 + 420; // ~920
+  const otherCount = resources.filter(r => (r.format !== 'pdf' && r.format !== 'flipbook') || r.category === 'Quiz' || r.id.includes('quiz') || !!r.worksheet).length * 12 + 35;
+  const pdfCount = resources.filter(r => r.format === 'pdf' && r.category !== 'Quiz' && !r.id.includes('quiz') && !r.worksheet).length * 115 + 420; // ~920
   const bookmarkCount = resources.filter(r => r.isBookmarked).length;
   const favoriteCount = resources.filter(r => r.isFavorite).length;
   const myLibraryCount = resources.filter(r => r.isMyLibrary).length;
@@ -665,7 +717,28 @@ export default function App() {
   // Handlers for User-Isolated Operations
   const handleToggleMyLibrary = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const updated = toggleBookInMyLibrary(currentUser?.id, id);
+    let updated = toggleBookInMyLibrary(currentUser?.id, id);
+
+    // Keep both PDF and Flipbook companion copies synchronized in My Library
+    if (id.endsWith('-flipbook')) {
+      const originalId = id.replace('-flipbook', '');
+      const originalIsPresent = updated.myLibraryResourceIds.includes(originalId);
+      const flipbookIsPresent = updated.myLibraryResourceIds.includes(id);
+      if (originalIsPresent !== flipbookIsPresent) {
+        updated = toggleBookInMyLibrary(currentUser?.id, originalId);
+      }
+    } else {
+      const flipbookId = `${id}-flipbook`;
+      const hasFlipbook = resources.some(r => r.id === flipbookId);
+      if (hasFlipbook) {
+        const originalIsPresent = updated.myLibraryResourceIds.includes(id);
+        const flipbookIsPresent = updated.myLibraryResourceIds.includes(flipbookId);
+        if (originalIsPresent !== flipbookIsPresent) {
+          updated = toggleBookInMyLibrary(currentUser?.id, flipbookId);
+        }
+      }
+    }
+
     setUserPersonalData(updated);
 
     if (currentUser) {
@@ -678,7 +751,7 @@ export default function App() {
     const notif: NotificationItem = {
       id: `notif-${Date.now()}`,
       title: isNowInLibrary ? 'Added to My Bookshelf' : 'Removed from My Bookshelf',
-      message: `"${book?.title || 'Book'}" is ${isNowInLibrary ? 'now saved in your personal library' : 'removed from your personal library'}.`,
+      message: `"${book?.title || 'Book'}" and its companion format are ${isNowInLibrary ? 'now saved in your personal library' : 'removed from your personal library'}.`,
       time: 'Just now',
       isRead: false,
       type: 'curriculum',
@@ -689,7 +762,28 @@ export default function App() {
 
   const handleToggleBookmark = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const updated = toggleBookmarkInUserData(currentUser?.id, id);
+    let updated = toggleBookmarkInUserData(currentUser?.id, id);
+
+    // Keep both PDF and Flipbook companion copies synchronized for Bookmarks
+    if (id.endsWith('-flipbook')) {
+      const originalId = id.replace('-flipbook', '');
+      const originalIsPresent = updated.bookmarkedResourceIds.includes(originalId);
+      const flipbookIsPresent = updated.bookmarkedResourceIds.includes(id);
+      if (originalIsPresent !== flipbookIsPresent) {
+        updated = toggleBookmarkInUserData(currentUser?.id, originalId);
+      }
+    } else {
+      const flipbookId = `${id}-flipbook`;
+      const hasFlipbook = resources.some(r => r.id === flipbookId);
+      if (hasFlipbook) {
+        const originalIsPresent = updated.bookmarkedResourceIds.includes(id);
+        const flipbookIsPresent = updated.bookmarkedResourceIds.includes(flipbookId);
+        if (originalIsPresent !== flipbookIsPresent) {
+          updated = toggleBookmarkInUserData(currentUser?.id, flipbookId);
+        }
+      }
+    }
+
     setUserPersonalData(updated);
 
     if (currentUser) {
@@ -699,7 +793,28 @@ export default function App() {
 
   const handleToggleFavorite = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const updated = toggleFavoriteInUserData(currentUser?.id, id);
+    let updated = toggleFavoriteInUserData(currentUser?.id, id);
+
+    // Keep both PDF and Flipbook companion copies synchronized for Favorites
+    if (id.endsWith('-flipbook')) {
+      const originalId = id.replace('-flipbook', '');
+      const originalIsPresent = updated.favoriteResourceIds.includes(originalId);
+      const flipbookIsPresent = updated.favoriteResourceIds.includes(id);
+      if (originalIsPresent !== flipbookIsPresent) {
+        updated = toggleFavoriteInUserData(currentUser?.id, originalId);
+      }
+    } else {
+      const flipbookId = `${id}-flipbook`;
+      const hasFlipbook = resources.some(r => r.id === flipbookId);
+      if (hasFlipbook) {
+        const originalIsPresent = updated.favoriteResourceIds.includes(id);
+        const flipbookIsPresent = updated.favoriteResourceIds.includes(flipbookId);
+        if (originalIsPresent !== flipbookIsPresent) {
+          updated = toggleFavoriteInUserData(currentUser?.id, flipbookId);
+        }
+      }
+    }
+
     setUserPersonalData(updated);
 
     if (currentUser) {
@@ -720,60 +835,150 @@ export default function App() {
   };
 
   const handleAddResource = async (newRes: Resource, openImmediately?: boolean) => {
-    // Save to Firestore for persistent multi-device syncing in real time
-    await saveResourceToFirestore(newRes);
+    // If the uploaded resource format is 'pdf', we also convert it to a Flipbook copy and keep both
+    if (newRes.format === 'pdf') {
+      const flipbookRes: Resource = {
+        ...newRes,
+        id: `${newRes.id}-flipbook`,
+        title: `${newRes.title} (Flipbook)`,
+        format: 'flipbook',
+        fileType: 'application/epub+zip', // Flipbook format
+        coverTheme: {
+          bg: 'from-blue-900 via-indigo-900 to-slate-950',
+          text: 'text-white',
+          accent: '#3b82f6',
+          badgeBg: 'bg-blue-600',
+          badgeText: 'text-white'
+        }
+      };
 
-    // Save to user's personal bookshelf automatically
-    const updatedUser = toggleBookInMyLibrary(currentUser?.id, newRes.id);
-    setUserPersonalData(updatedUser);
-    if (currentUser) {
-      saveUserPersonalDataToFirestore(currentUser.id, updatedUser);
-    }
+      // Save both to Firestore for persistent multi-device syncing in real time
+      await saveResourceToFirestore(newRes);
+      await saveResourceToFirestore(flipbookRes);
 
-    // Log activity
-    if (currentUser) {
-      await logSystemActivityToFirestore({
-        id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        action: 'upload',
-        title: 'Resource Uploaded',
-        description: `Published new ${newRes.format.toUpperCase()} "${newRes.title}" for Grade ${newRes.grade}.`,
-        userName: currentUser.name,
-        userRole: currentUser.role,
-        userEmail: currentUser.email,
-        timestamp: new Date().toISOString(),
-        resourceId: newRes.id
-      });
-    }
-
-    setRawResources(prev => {
-      const updated = [newRes, ...prev.filter(r => r.id !== newRes.id)];
-      try {
-        const customItems = updated.filter(r => r.id.startsWith('res-custom-'));
-        localStorage.setItem('dewey_custom_uploaded_resources', JSON.stringify(customItems));
-      } catch (e) {
-        console.error('Failed to save to localStorage', e);
+      // Save both to user's personal bookshelf automatically
+      let updatedUser = toggleBookInMyLibrary(currentUser?.id, newRes.id);
+      if (!updatedUser.myLibraryResourceIds.includes(flipbookRes.id)) {
+        updatedUser = toggleBookInMyLibrary(currentUser?.id, flipbookRes.id);
       }
-      return updated;
-    });
+      setUserPersonalData(updatedUser);
+      if (currentUser) {
+        saveUserPersonalDataToFirestore(currentUser.id, updatedUser);
+      }
 
-    // Auto-select uploaded resource grade so it immediately appears in the featured carousel on Dashboard
-    setSelectedGrade(newRes.grade);
+      // Log both activities
+      if (currentUser) {
+        await logSystemActivityToFirestore({
+          id: `act-${Date.now()}-pdf`,
+          action: 'upload',
+          title: 'Resource Uploaded (PDF)',
+          description: `Published PDF "${newRes.title}" for Grade ${newRes.grade}.`,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          userEmail: currentUser.email,
+          timestamp: new Date().toISOString(),
+          resourceId: newRes.id
+        });
 
-    // Create system notification
-    const newNotif: NotificationItem = {
-      id: `notif-${Date.now()}`,
-      title: 'Curriculum Resource Published',
-      message: `"${newRes.title}" is saved to your personal library and synced in real time across the domain.`,
-      time: 'Just now',
-      isRead: false,
-      type: 'curriculum',
-      linkResourceId: newRes.id
-    };
-    setNotifications(prev => [newNotif, ...prev]);
+        await logSystemActivityToFirestore({
+          id: `act-${Date.now()}-flipbook`,
+          action: 'upload',
+          title: 'Resource Auto-Converted to Flipbook',
+          description: `Automatically converted PDF "${newRes.title}" to standard 3D Flipbook copy.`,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          userEmail: currentUser.email,
+          timestamp: new Date().toISOString(),
+          resourceId: flipbookRes.id
+        });
+      }
 
-    // Open immediately if requested
-    if (openImmediately) {
-      handleOpenResource(newRes);
+      setRawResources(prev => {
+        const updated = [newRes, flipbookRes, ...prev.filter(r => r.id !== newRes.id && r.id !== flipbookRes.id)];
+        try {
+          const customItems = updated.filter(r => r.id.startsWith('res-custom-'));
+          localStorage.setItem('dewey_custom_uploaded_resources', JSON.stringify(customItems));
+        } catch (e) {
+          console.error('Failed to save to localStorage', e);
+        }
+        return updated;
+      });
+
+      // Auto-select uploaded resource grade so it immediately appears in the featured carousel on Dashboard
+      setSelectedGrade(newRes.grade);
+
+      // Create dual format system notification
+      const newNotif: NotificationItem = {
+        id: `notif-${Date.now()}`,
+        title: 'PDF & Converted Flipbook Published',
+        message: `"${newRes.title}" has been successfully published as both a PDF and a Flipbook copy.`,
+        time: 'Just now',
+        isRead: false,
+        type: 'curriculum',
+        linkResourceId: flipbookRes.id
+      };
+      setNotifications(prev => [newNotif, ...prev]);
+
+      // Open immediately if requested (default to interactive Flipbook copy)
+      if (openImmediately) {
+        handleOpenResource(flipbookRes);
+      }
+    } else {
+      // Save to Firestore for persistent multi-device syncing in real time
+      await saveResourceToFirestore(newRes);
+
+      // Save to user's personal bookshelf automatically
+      const updatedUser = toggleBookInMyLibrary(currentUser?.id, newRes.id);
+      setUserPersonalData(updatedUser);
+      if (currentUser) {
+        saveUserPersonalDataToFirestore(currentUser.id, updatedUser);
+      }
+
+      // Log activity
+      if (currentUser) {
+        await logSystemActivityToFirestore({
+          id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          action: 'upload',
+          title: 'Resource Uploaded',
+          description: `Published new ${newRes.format.toUpperCase()} "${newRes.title}" for Grade ${newRes.grade}.`,
+          userName: currentUser.name,
+          userRole: currentUser.role,
+          userEmail: currentUser.email,
+          timestamp: new Date().toISOString(),
+          resourceId: newRes.id
+        });
+      }
+
+      setRawResources(prev => {
+        const updated = [newRes, ...prev.filter(r => r.id !== newRes.id)];
+        try {
+          const customItems = updated.filter(r => r.id.startsWith('res-custom-'));
+          localStorage.setItem('dewey_custom_uploaded_resources', JSON.stringify(customItems));
+        } catch (e) {
+          console.error('Failed to save to localStorage', e);
+        }
+        return updated;
+      });
+
+      // Auto-select uploaded resource grade so it immediately appears in the featured carousel on Dashboard
+      setSelectedGrade(newRes.grade);
+
+      // Create system notification
+      const newNotif: NotificationItem = {
+        id: `notif-${Date.now()}`,
+        title: 'Curriculum Resource Published',
+        message: `"${newRes.title}" is saved to your personal library and synced in real time across the domain.`,
+        time: 'Just now',
+        isRead: false,
+        type: 'curriculum',
+        linkResourceId: newRes.id
+      };
+      setNotifications(prev => [newNotif, ...prev]);
+
+      // Open immediately if requested
+      if (openImmediately) {
+        handleOpenResource(newRes);
+      }
     }
   };
 
@@ -891,6 +1096,7 @@ export default function App() {
                 totalCount={totalCount}
                 flipbookCount={flipbookCount}
                 pdfCount={pdfCount}
+                otherCount={otherCount}
                 myLibraryCount={myLibraryCount}
                 activeFormat={formatFilter}
                 onFilterFormat={setFormatFilter}
@@ -899,6 +1105,7 @@ export default function App() {
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
                 onOpenCreateWorksheetModal={() => setIsCreateWorksheetOpen(true)}
+                onOpenCreateQuizModal={() => setIsCreateQuizOpen(true)}
                 onViewMyLibrary={() => setActiveTab('library')}
               />
 
@@ -977,6 +1184,7 @@ export default function App() {
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
               onOpenCreateLessonPlanModal={() => setIsCreateLessonPlanOpen(true)}
               onOpenCreateWorksheetModal={() => setIsCreateWorksheetOpen(true)}
+              onOpenCreateQuizModal={() => setIsCreateQuizOpen(true)}
               currentUser={currentUser}
               onDeleteLessonPlan={handleDeleteLessonPlan}
             />
@@ -1095,6 +1303,15 @@ export default function App() {
         onAddResource={handleAddResource}
         currentUser={currentUser}
         initialGrade={selectedGrade || '6'}
+      />
+
+      {/* Generate Interactive Student Quiz Modal */}
+      <CreateQuizModal
+        isOpen={isCreateQuizOpen}
+        onClose={() => setIsCreateQuizOpen(false)}
+        onAddResource={handleAddResource}
+        currentUser={currentUser}
+        initialGrade={selectedGrade || '9'}
       />
 
       {/* Share Resource Modal */}

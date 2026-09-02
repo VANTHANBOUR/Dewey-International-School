@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { getStandardsBySubjectAndGrade } from './src/data/standardsData';
 
 dotenv.config();
 
@@ -48,6 +49,9 @@ async function startServer() {
 
       const apiKey = process.env.GEMINI_API_KEY;
 
+      const matchingStandards = getStandardsBySubjectAndGrade(cleanSubject, cleanGrade);
+      const standardsPromptText = matchingStandards.map(s => `- ${s.code}: ${s.description}`).join('\n');
+
       if (!apiKey) {
         console.warn('GEMINI_API_KEY not found in environment. Generating high-quality curriculum fallback.');
         return res.json({
@@ -78,8 +82,11 @@ Input Parameters:
 - Instructor: ${teacherName}
 ${teacherInstruction ? `- SPECIAL TEACHER INSTRUCTIONS & CONSTRAINTS: "${teacherInstruction}". (CRITICAL: You MUST strictly integrate and emphasize these specific teacher instructions across the activities, schedule breakdown, objectives, and differentiation).` : ''}
 
+Official Schemes of Work Standards for this Grade and Subject:
+${standardsPromptText || 'None specified. Generate 3-5 standard codes of the format DIS-' + cleanSubject.slice(0, 3).toUpperCase() + '.G' + cleanGrade + '.XX with standard descriptions.'}
+
 Requirements:
-1. Standards: Provide 3-5 real, rigorous standards with standard code (e.g. 'DIS-SCI.${cleanGrade}.04: Advanced Inquiry & Analysis', 'CCSS.ELA-LITERACY.RST.${cleanGrade}-10.3', 'NGSS.HS-LS1-7') and concise descriptions.
+1. Standards: Incorporate 3-5 standards. For any standard used from the official list above, output its EXACT code and description (e.g. "DIS-SCI.G9.01: Investigate cellular respiration..."). If none are specified, generate standards matching the pattern 'DIS-${cleanSubject.slice(0,3).toUpperCase()}.G${cleanGrade}.XX'.
 2. Learning Objectives: Provide 3-5 measurable Bloom's Taxonomy objectives with action verbs (e.g. Analyze, Formulate, Model, Synthesize, Evaluate).
 3. Essential Questions: Provide 2-4 provocative, open-ended inquiry questions that stimulate critical thinking.
 4. Required Materials & Equipment: Provide 4-6 specific digital, physical, or laboratory materials (e.g. 'Dewey Digital Reader Flipbook Vol ${cleanGrade}', 'Scientific Graphing Calculators', 'Interactive PhET Simulation Platform').
@@ -380,6 +387,14 @@ function generateCurriculumFallback(
   teacherInstruction?: string
 ) {
   const instructionNotice = teacherInstruction ? ` (Aligned with teacher focus: ${teacherInstruction})` : '';
+  const officialStandards = getStandardsBySubjectAndGrade(subject, grade);
+  const matchedStandardsList = officialStandards.length > 0
+    ? officialStandards.map(s => `${s.code}: ${s.description}`)
+    : [
+        `DIS-${subject.slice(0, 3).toUpperCase()}.${grade}.01: Demonstrates advanced comprehension and inquiry synthesis in ${subject}.`,
+        `DIS-ACAD.${grade}.04: Formulates empirical models and communicates evidence-based reasoning effectively.`,
+        `CCSS.DIS.LITERACY.G${grade}: Analyzes technical content, disciplinary vocabulary, and authentic primary materials.`
+      ];
 
   return {
     title: title || `${subject} Grade ${grade} Mastery Framework`,
@@ -423,11 +438,7 @@ function generateCurriculumFallback(
         assessment: `Summative unit assessment score and learner self-reflection rubric.`
       }
     ],
-    standards: [
-      `DIS-${subject.slice(0, 3).toUpperCase()}.${grade}.01: Demonstrates advanced comprehension and inquiry synthesis in ${subject}.`,
-      `DIS-ACAD.${grade}.04: Formulates empirical models and communicates evidence-based reasoning effectively.`,
-      `CCSS.DIS.LITERACY.G${grade}: Analyzes technical content, disciplinary vocabulary, and authentic primary materials.`
-    ],
+    standards: matchedStandardsList,
     objectives: [
       `Analyze the foundational concepts and structural mechanics of ${title}.${instructionNotice}`,
       `Formulate and test analytical solutions through collaborative investigation and problem-solving.`,

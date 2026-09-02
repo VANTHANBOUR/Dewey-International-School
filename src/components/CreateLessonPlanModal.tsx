@@ -41,6 +41,7 @@ import {
   UserProfile 
 } from '../types';
 import { downloadLessonPlanDocument, generateLessonPlanHTML, printLessonPlanDocument } from '../utils/downloadHelper';
+import { getStandardsBySubjectAndGrade } from '../data/standardsData';
 
 interface CreateLessonPlanModalProps {
   isOpen: boolean;
@@ -2207,28 +2208,83 @@ export const CreateLessonPlanModal: React.FC<CreateLessonPlanModalProps> = ({
               <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider block">
                 📜 Curriculum Standards Alignment
               </span>
-              <ul className="space-y-1.5 text-xs text-slate-800">
-                {standards.map((std, i) => (
-                  <li key={i} className="flex items-start gap-2 bg-orange-50/70 p-2 rounded-lg border border-orange-200/80">
-                    <span className="text-orange-700 font-bold mt-0.5">•</span>
-                    <span className="flex-1 font-medium">{std}</span>
-                    <button
-                      type="button"
-                      onClick={() => setStandards(prev => prev.filter((_, idx) => idx !== i))}
-                      className="text-slate-400 hover:text-rose-500"
-                    >
-                      <X size={13} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              
+              {/* Added Standards List */}
+              {standards.length > 0 ? (
+                <ul className="space-y-1.5 text-xs text-slate-800">
+                  {standards.map((std, i) => (
+                    <li key={i} className="flex items-start gap-2 bg-orange-50/70 p-2 rounded-lg border border-orange-200/80">
+                      <span className="text-orange-700 font-bold mt-0.5">•</span>
+                      <span className="flex-1 font-medium">{std}</span>
+                      <button
+                        type="button"
+                        onClick={() => setStandards(prev => prev.filter((_, idx) => idx !== i))}
+                        className="text-slate-400 hover:text-rose-500 cursor-pointer"
+                      >
+                        <X size={13} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-slate-400 italic">No standards aligned yet. Select from the suggested Schemes of Work standards below or type a custom one.</p>
+              )}
+
+              {/* Suggestions Panel based on Schemes of Work Standards */}
+              {(() => {
+                const suggested = getStandardsBySubjectAndGrade(subject, grade);
+                if (suggested.length === 0) return null;
+                return (
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <span className="text-[10px] font-extrabold text-indigo-900 uppercase tracking-wider block">
+                      💡 Suggested Schemes of Work Standards ({grade} {subject})
+                    </span>
+                    <div className="max-h-40 overflow-y-auto space-y-1 pr-1 border border-slate-100 rounded-xl p-1 bg-slate-50/50">
+                      {suggested.map((s) => {
+                        const representation = `${s.code}: ${s.description}`;
+                        const isAdded = standards.some(std => std.toLowerCase().includes(s.code.toLowerCase()));
+                        return (
+                          <div 
+                            key={s.code} 
+                            onClick={() => {
+                              if (!isAdded) {
+                                setStandards(prev => [...prev, representation]);
+                              } else {
+                                setStandards(prev => prev.filter(std => !std.toLowerCase().includes(s.code.toLowerCase())));
+                              }
+                            }}
+                            className={`p-2 rounded-lg text-left text-[11px] transition-all flex items-start gap-2 cursor-pointer ${
+                              isAdded 
+                                ? 'bg-orange-100 border border-orange-200 text-orange-950 font-semibold' 
+                                : 'bg-white hover:bg-orange-50 border border-slate-200 text-slate-700'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 border text-[9px] font-bold ${
+                              isAdded 
+                                ? 'bg-orange-600 border-orange-600 text-white' 
+                                : 'bg-slate-100 border-slate-300 text-slate-500'
+                            }`}>
+                              {isAdded ? "✓" : "+"}
+                            </span>
+                            <div className="flex-1">
+                              <span className="font-bold text-orange-900 block text-[10px]">{s.code} {s.term ? `• ${s.term}` : ''}</span>
+                              <span className="line-clamp-2 leading-relaxed text-slate-600">{s.description}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="flex gap-2 pt-1">
                 <input
                   type="text"
                   value={newStandardInput}
                   onChange={(e) => setNewStandardInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddStandard())}
-                  placeholder="e.g. DIS-MATH.G9.02..."
+                  placeholder="Or enter custom standard e.g. DIS-MATH.G9.02..."
                   className="flex-1 px-3 py-1.5 bg-orange-50/80 border border-orange-200 rounded-lg text-xs text-slate-900 font-medium focus:bg-orange-50 focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 focus:outline-none shadow-2xs"
                 />
                 <button

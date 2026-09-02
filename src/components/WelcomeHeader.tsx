@@ -1,19 +1,21 @@
 import React from 'react';
-import { BookOpen, Folder, FileText, Sparkles, LogIn, Plus, Library } from 'lucide-react';
+import { BookOpen, Folder, FileText, Sparkles, LogIn, Plus, Library, BrainCircuit } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface WelcomeHeaderProps {
   totalCount?: number;
   flipbookCount?: number;
   pdfCount?: number;
+  otherCount?: number;
   myLibraryCount?: number;
-  onFilterFormat?: (format: 'all' | 'flipbook' | 'pdf') => void;
-  activeFormat?: 'all' | 'flipbook' | 'pdf';
+  onFilterFormat?: (format: 'all' | 'flipbook' | 'pdf' | 'other') => void;
+  activeFormat?: 'all' | 'flipbook' | 'pdf' | 'other';
   currentUser?: UserProfile | null;
   onOpenAuthModal?: (mode: 'signin' | 'signup') => void;
   onOpenUploadModal?: () => void;
   onOpenCreateLessonPlanModal?: () => void;
   onOpenCreateWorksheetModal?: () => void;
+  onOpenCreateQuizModal?: () => void;
   onViewMyLibrary?: () => void;
 }
 
@@ -21,6 +23,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   totalCount = 1248,
   flipbookCount = 328,
   pdfCount = 920,
+  otherCount = 47,
   myLibraryCount = 0,
   onFilterFormat,
   activeFormat = 'all',
@@ -29,6 +32,7 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
   onOpenCreateWorksheetModal,
+  onOpenCreateQuizModal,
   onViewMyLibrary,
 }) => {
   const firstName = currentUser?.name ? currentUser.name.split(' ')[0] : null;
@@ -78,6 +82,18 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
               </button>
             )}
 
+            {/* Generate Quiz Button */}
+            {onOpenCreateQuizModal && (
+              <button
+                id="header-generate-quiz-btn"
+                onClick={onOpenCreateQuizModal}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/25 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95 border border-indigo-300/30"
+              >
+                <Plus size={16} />
+                <span>Generate Quiz</span>
+              </button>
+            )}
+
             {/* Direct "Add Book" Quick Action on Dashboard */}
             {onOpenUploadModal && (
               <button
@@ -122,8 +138,8 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
         </p>
       </div>
 
-      {/* 3 Summary Stat Badges matching the image */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4 shrink-0">
+      {/* 4 Summary Stat Badges matching the image and user requirement */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 shrink-0 w-full lg:w-auto">
         {/* Stat 1: Total Resources (Blue) */}
         <button
           id="stat-card-total"
@@ -145,16 +161,16 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
           </div>
         </button>
 
-        {/* Stat 2: Flipbooks (Yellow/Amber) */}
+        {/* Stat 2: Flipbooks (Indigo) */}
         <button
           id="stat-card-flipbooks"
           onClick={() => onFilterFormat?.(activeFormat === 'flipbook' ? 'all' : 'flipbook')}
           className={`flex items-center gap-3 px-4 py-3 bg-white rounded-2xl border transition-all duration-200 text-left shadow-xs hover:shadow-md ${
-            activeFormat === 'flipbook' ? 'border-amber-300 ring-2 ring-amber-500/20' : 'border-slate-100/90'
+            activeFormat === 'flipbook' ? 'border-indigo-300 ring-2 ring-indigo-500/20' : 'border-slate-100/90'
           }`}
         >
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-            <Folder size={20} className="stroke-[2.2] fill-amber-500/20" />
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
+            <Folder size={20} className="stroke-[2.2] fill-indigo-500/20" />
           </div>
           <div>
             <div className="text-lg sm:text-xl font-extrabold text-[#0f172a] leading-tight">
@@ -183,6 +199,27 @@ export const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
             </div>
             <div className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">
               PDF Documents
+            </div>
+          </div>
+        </button>
+
+        {/* Stat 4: Other Quizzes & Worksheets (Purple/Violet) */}
+        <button
+          id="stat-card-other"
+          onClick={() => onFilterFormat?.(activeFormat === 'other' ? 'all' : 'other')}
+          className={`flex items-center gap-3 px-4 py-3 bg-white rounded-2xl border transition-all duration-200 text-left shadow-xs hover:shadow-md ${
+            activeFormat === 'other' ? 'border-purple-300 ring-2 ring-purple-500/20' : 'border-slate-100/90'
+          }`}
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <BrainCircuit size={20} className="stroke-[2.2]" />
+          </div>
+          <div>
+            <div className="text-lg sm:text-xl font-extrabold text-[#0f172a] leading-tight">
+              {otherCount.toLocaleString()}
+            </div>
+            <div className="text-[11px] font-semibold text-slate-400 whitespace-nowrap">
+              Quizzes & Exams
             </div>
           </div>
         </button>

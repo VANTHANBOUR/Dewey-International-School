@@ -337,9 +337,19 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
               <CheckCircle2 size={36} />
             </div>
             <div>
-              <h4 className="font-black text-2xl text-slate-900">Resource Successfully Published!</h4>
+              <h4 className="font-black text-2xl text-slate-900">
+                {createdResource?.format === 'pdf' ? 'PDF & Flipbook Successfully Published!' : 'Resource Successfully Published!'}
+              </h4>
               <p className="text-sm text-slate-600 max-w-md mx-auto mt-1.5">
-                <strong className="text-slate-900">{createdResource?.title}</strong> is now live with full digital reader support, interactive practice exercises, and curriculum materials.
+                {createdResource?.format === 'pdf' ? (
+                  <span>
+                    Uploaded <strong className="text-slate-900">{createdResource?.title}</strong> and automatically generated its companion interactive 3D Flipbook. Both formats are saved and synced!
+                  </span>
+                ) : (
+                  <span>
+                    <strong className="text-slate-900">{createdResource?.title}</strong> is now live with full digital reader support, interactive practice exercises, and curriculum materials.
+                  </span>
+                )}
               </p>
             </div>
 
@@ -533,7 +543,7 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
               </div>
 
               {/* Format */}
-              <div>
+              <div className="sm:col-span-1">
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">Portal Format</label>
                 <div className="flex gap-1.5">
                   <button
@@ -563,6 +573,15 @@ export const UploadResourceModal: React.FC<UploadResourceModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {format === 'pdf' && (
+              <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-3 text-xs text-emerald-800 font-medium flex items-center gap-2 animate-in fade-in duration-200">
+                <Sparkles size={16} className="text-emerald-600 shrink-0" />
+                <span>
+                  <strong>Dewey Dual-Copy Rule:</strong> Uploading a PDF will automatically generate a companion 3D Flipbook copy. Both formats will be preserved and accessible in your library bookshelf!
+                </span>
+              </div>
+            )}
 
             {/* Attached Pedagogical Packages (Worksheets & Lesson Plans) */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">

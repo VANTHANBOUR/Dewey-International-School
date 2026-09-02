@@ -52,7 +52,7 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onNavigateToTab,
   onDeleteResource,
 }) => {
-  const [filterFormat, setFilterFormat] = useState<'all' | ResourceFormat | 'my_uploads'>('all');
+  const [filterFormat, setFilterFormat] = useState<'all' | ResourceFormat | 'other' | 'my_uploads'>('all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [downloadToast, setDownloadToast] = useState<string | null>(null);
@@ -76,8 +76,18 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
       // Format / Source filter
       if (filterFormat === 'my_uploads') {
         if (r.uploadedByUserId !== currentUser?.id) return false;
-      } else if (filterFormat !== 'all') {
-        if (r.format !== filterFormat) return false;
+      } else if (filterFormat === 'pdf') {
+        if (r.format !== 'pdf' || r.category === 'Quiz') return false;
+      } else if (filterFormat === 'flipbook') {
+        if (r.format !== 'flipbook') return false;
+      } else if (filterFormat === 'other') {
+        if (r.format !== 'pdf' && r.format !== 'flipbook') {
+          return true;
+        }
+        if (r.category === 'Quiz' || r.category === 'Worksheet' || r.id.includes('quiz') || !!r.worksheet) {
+          return true;
+        }
+        return false;
       }
 
       // Subject filter
@@ -102,8 +112,9 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
 
   // Counts for library tabs
   const totalInLibrary = myLibraryResources.length;
-  const pdfCountInLibrary = myLibraryResources.filter(r => r.format === 'pdf').length;
+  const pdfCountInLibrary = myLibraryResources.filter(r => r.format === 'pdf' && r.category !== 'Quiz' && !r.id.includes('quiz') && !r.worksheet).length;
   const flipbookCountInLibrary = myLibraryResources.filter(r => r.format === 'flipbook').length;
+  const otherCountInLibrary = myLibraryResources.filter(r => (r.format !== 'pdf' && r.format !== 'flipbook') || r.category === 'Quiz' || r.id.includes('quiz') || !!r.worksheet).length;
   const uploadsCountInLibrary = myLibraryResources.filter(r => r.uploadedByUserId === currentUser?.id).length;
 
   // Available subjects in the user's library
@@ -256,6 +267,17 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               }`}
             >
               Flipbooks ({flipbookCountInLibrary})
+            </button>
+            <button
+              id="library-filter-other-btn"
+              onClick={() => setFilterFormat('other')}
+              className={`px-3 py-1.5 rounded-lg font-bold transition-all ${
+                filterFormat === 'other'
+                  ? 'bg-purple-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Quizzes & Worksheets ({otherCountInLibrary})
             </button>
             {uploadsCountInLibrary > 0 && (
               <button

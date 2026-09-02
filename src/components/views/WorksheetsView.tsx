@@ -44,6 +44,7 @@ interface WorksheetsViewProps {
   onOpenUploadModal: () => void;
   onOpenCreateLessonPlanModal?: () => void;
   onOpenCreateWorksheetModal?: () => void;
+  onOpenCreateQuizModal?: () => void;
   currentUser?: UserProfile | null;
   onDeleteLessonPlan?: (planId: string) => void;
 }
@@ -55,6 +56,7 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
   onOpenUploadModal,
   onOpenCreateLessonPlanModal,
   onOpenCreateWorksheetModal,
+  onOpenCreateQuizModal,
   currentUser,
   onDeleteLessonPlan,
 }) => {
@@ -215,6 +217,21 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
               </button>
             )}
 
+            {/* Generate Quiz Button */}
+            {onOpenCreateQuizModal && (
+              <button
+                id="btn-generate-quiz-header"
+                onClick={onOpenCreateQuizModal}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-extrabold shadow-lg shadow-indigo-600/25 transition-all flex items-center gap-2 border border-indigo-400/30 transform hover:-translate-y-0.5"
+              >
+                <BrainCircuit size={16} />
+                <span>Generate Quiz</span>
+                <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-black uppercase tracking-wider animate-pulse">
+                  Interactive AI Quizzer
+                </span>
+              </button>
+            )}
+
             <button
               onClick={onOpenUploadModal}
               className="px-4 py-2.5 rounded-xl bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all flex items-center gap-2 border border-blue-400/30"
@@ -263,6 +280,18 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
               >
                 <PlusCircle size={14} />
                 <span>Create Worksheet</span>
+              </button>
+            )}
+
+            {/* Generate Quiz Fast Button */}
+            {onOpenCreateQuizModal && (
+              <button
+                id="btn-generate-quiz-filterbar"
+                onClick={onOpenCreateQuizModal}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <BrainCircuit size={14} />
+                <span>Generate Quiz</span>
               </button>
             )}
 
@@ -390,6 +419,37 @@ export const WorksheetsView: React.FC<WorksheetsViewProps> = ({
           >
             <Wand2 size={15} />
             <span>Open AI Plan Generator</span>
+          </button>
+        </div>
+      )}
+
+      {/* AI Assistant Quick Banner for Quizzes */}
+      {(activeType === 'all' || activeType === 'worksheets') && onOpenCreateQuizModal && (
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 border border-blue-500/30 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 flex items-center justify-center shrink-0">
+              <BrainCircuit size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-300">
+                  AI Quiz Generation Center
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 font-bold">
+                  Interactive Assessments & Answer Keys
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5 font-medium">
+                Create customizable digital quizzes, formative check-ups, and exams matching any textbook topic or custom references.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onOpenCreateQuizModal}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 via-blue-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white font-black text-xs shadow-md shadow-indigo-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <Wand2 size={15} />
+            <span>Open AI Quiz Creator</span>
           </button>
         </div>
       )}
